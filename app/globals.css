@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f1f1f1;
+  --foreground: #262629;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: Inter, Arial, Helvetica, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  overflow-x: hidden;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Inter, Arial, Helvetica, sans-serif;
+}
+
+.agrotrust-admin-surface {
+  width: 100%;
+  min-height: 100vh;
+}
+
+@media (min-width: 1024px) {
+  .agrotrust-admin-surface [class*="text-[8px]"] {
+    font-size: 9px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[9px]"] {
+    font-size: 10px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[10px]"] {
+    font-size: 11px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[11px]"] {
+    font-size: 12px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[12px]"] {
+    font-size: 13px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[13px]"] {
+    font-size: 14px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[14px]"] {
+    font-size: 15px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[16px]"] {
+    font-size: 18px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[18px]"] {
+    font-size: 20px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[20px]"] {
+    font-size: 22px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[22px]"] {
+    font-size: 24px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[24px]"] {
+    font-size: 26px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[30px]"] {
+    font-size: 34px;
+  }
+
+  .agrotrust-admin-surface [class*="text-[34px]"] {
+    font-size: 38px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[12px]"] {
+    line-height: 13px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[13px]"] {
+    line-height: 15px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[14px]"] {
+    line-height: 16px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[15px]"] {
+    line-height: 17px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[16px]"] {
+    line-height: 18px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[17px]"] {
+    line-height: 19px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[18px]"] {
+    line-height: 20px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[19px]"] {
+    line-height: 21px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[20px]"] {
+    line-height: 22px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[22px]"] {
+    line-height: 24px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[23px]"] {
+    line-height: 25px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[28px]"] {
+    line-height: 30px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[36px]"] {
+    line-height: 40px;
+  }
+
+  .agrotrust-admin-surface [class*="leading-[40px]"] {
+    line-height: 44px;
+  }
+}
+
+button,
+input {
+  font: inherit;
+}
