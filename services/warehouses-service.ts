@@ -28,8 +28,10 @@ export type CreateWarehousePayload = {
 };
 
 export type UpdateWarehousePayload = {
-  name: string;
-  location: string;
+  name?: string;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
   keeperId?: string;
 };
 
@@ -65,5 +67,12 @@ export function updateWarehouse(warehouseId: string, payload: UpdateWarehousePay
     auth: true,
     body: payload,
     method: "PUT",
+  });
+}
+
+export function deleteWarehouse(warehouseId: string) {
+  return apiRequest<{ message?: string }>(`/warehouses/${warehouseId}`, {
+    auth: true,
+    method: "DELETE",
   });
 }

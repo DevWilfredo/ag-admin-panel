@@ -20,14 +20,25 @@ export class ApiError extends Error {
 
 export function getErrorMessage(error: unknown, fallback = "Something went wrong. Try again.") {
   if (error instanceof ApiError) {
-    return error.message || fallback;
+    if (error.status === 401) return "Your session has expired. Please sign in again.";
+    if (error.status === 403) return "You don’t have permission to perform this action.";
+    if (error.status === 404) return "The requested information could not be found.";
+    if (error.status && error.status >= 500) return "The service is temporarily unavailable. Please try again in a moment.";
+    return humanize(error.message, fallback);
   }
 
   if (error instanceof Error) {
-    return error.message || fallback;
+    return humanize(error.message, fallback);
   }
 
   return fallback;
+}
+
+function humanize(message: string | undefined, fallback: string) {
+  if (!message) return fallback;
+  if (/failed to fetch|networkerror|network request failed|load failed|econnrefused/i.test(message)) return "We couldn’t connect to the service. Check your connection and try again.";
+  if (/NEXT_PUBLIC_API|base url|environment variable/i.test(message)) return "The service connection is not configured. Please contact support.";
+  return message;
 }
 
 export function extractApiErrorMessage(body: unknown, fallback: string) {

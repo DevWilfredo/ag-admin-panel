@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Bell, ChevronDown, LogOut, Menu, Settings, UserCircle, X } from "lucide-react";
+import { Bell, Boxes, ChevronDown, FileText, LogOut, Menu, ReceiptText, Settings, UserCircle, Warehouse, WalletCards, X } from "lucide-react";
 import { LogoutButton } from "@/features/auth/logout-button";
 import { logoutLocal } from "@/services/auth-service";
 
-export type AppNavKey = "dashboard" | "transactions" | "analytics" | "messages";
+export type AppNavKey = "dashboard" | "transactions" | "warehouses" | "inventory" | "documents" | "payments" | "analytics" | "messages";
 
 export type AppShellHeader = {
   title: string;
@@ -50,6 +50,10 @@ const navItems: {
     href: "/transactions",
     icon: "transactions",
   },
+  { key: "warehouses", label: "Warehouses", href: "/warehouses", icon: "warehouses" },
+  { key: "inventory", label: "Inventory", href: "/inventory", icon: "inventory" },
+  { key: "documents", label: "Documents", href: "/documents", icon: "documents" },
+  { key: "payments", label: "Payments", href: "/payments", icon: "payments" },
   {
     key: "analytics",
     label: "Data Analytics",
@@ -241,7 +245,7 @@ export function AppShell({
             </label>
           </div>
         </header>
-        <main className={`grid w-full ${mainClassName}`}>{children}</main>
+        <motion.main initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .28, ease: [0.22, 1, 0.36, 1] }} className={`grid w-full ${mainClassName}`}>{children}</motion.main>
       </div>
     </div>
   );
@@ -508,13 +512,11 @@ function SidebarIcon({ icon }: { icon: AppNavKey }) {
           />
         </svg>
       );
-    case "transactions":
-      return (
-        <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24">
-          <path d="M7 4h10v16H7V4Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
-          <path d="M9.5 8h5M9.5 12h5M9.5 16h3" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
-        </svg>
-      );
+    case "transactions": return <ReceiptText aria-hidden className="h-4 w-4 shrink-0" />;
+    case "warehouses": return <Warehouse aria-hidden className="h-4 w-4 shrink-0" />;
+    case "inventory": return <Boxes aria-hidden className="h-4 w-4 shrink-0" />;
+    case "documents": return <FileText aria-hidden className="h-4 w-4 shrink-0" />;
+    case "payments": return <WalletCards aria-hidden className="h-4 w-4 shrink-0" />;
     case "analytics":
       return (
         <svg aria-hidden="true" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24">

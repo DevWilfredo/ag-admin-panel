@@ -57,7 +57,7 @@ export type UploadDocumentResponse = {
 };
 
 export type UpdateDocumentStatusPayload = {
-  status: "ENDORSED" | "RELEASED";
+  status: "UPLOADED" | "ENDORSED" | "RELEASED";
   holderNote?: string;
 };
 
@@ -102,5 +102,19 @@ export function updateDocumentStatus(documentId: string, payload: UpdateDocument
     auth: true,
     body: payload,
     method: "PATCH",
+  });
+}
+
+export function getDocument(documentId: string) {
+  return apiRequest<DocumentDto>(`/documents/${documentId}`, {
+    auth: true,
+    method: "GET",
+  });
+}
+
+export function deleteDocument(documentId: string) {
+  return apiRequest<{ message?: string }>(`/documents/${documentId}`, {
+    auth: true,
+    method: "DELETE",
   });
 }

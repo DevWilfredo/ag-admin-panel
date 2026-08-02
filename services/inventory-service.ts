@@ -35,9 +35,9 @@ export type CreateInventoryPayload = {
   warehouseId: string;
   commodityType: string;
   quantity: number;
-  unit: string;
+  unit?: string;
   lotId: string;
-  dateReceived: string;
+  dateReceived?: string;
 };
 
 export type CreateInventoryResponse = {

@@ -18,6 +18,19 @@ export type LoginCredentials = {
   password: string;
 };
 
+export type RegisterUserPayload = {
+  email: string;
+  password: string;
+  fullName: string;
+  role: UserRole;
+  phone?: string;
+};
+
+export type RegisterUserResponse = {
+  message?: string;
+  user?: CurrentUser;
+};
+
 export type LoginResponse = SessionTokens & {
   message: string;
   user: {
@@ -60,6 +73,14 @@ export async function getCurrentUser() {
   return apiRequest<CurrentUser>("/auth/me", {
     auth: true,
     method: "GET",
+  });
+}
+
+export function registerUser(payload: RegisterUserPayload) {
+  return apiRequest<RegisterUserResponse>("/auth/register", {
+    body: payload,
+    method: "POST",
+    retryOnUnauthorized: false,
   });
 }
 

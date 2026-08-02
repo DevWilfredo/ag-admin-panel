@@ -2,6 +2,9 @@
 
 import { AppShell } from "@/components/app-shell";
 import { LayoutGroup, motion } from "motion/react";
+import { useState, type FormEvent } from "react";
+import { advanceOrderStage } from "@/services/orders-service";
+import { getErrorMessage } from "@/services/api-errors";
 import type {
   TransactionDetail,
   TransactionListItem,
@@ -445,20 +448,49 @@ function ProcessTracker({ steps }: { steps: TrackerStep[] }) {
 }
 
 function BackendDataPanels({ detail }: { detail: TransactionDetail }) {
-  const hasChecklist = Boolean(detail.documentChecklist);
-  const hasPayment = Boolean(detail.paymentSummary);
-  const hasAudit = Boolean(detail.auditTimeline?.length);
-
-  if (!hasChecklist && !hasPayment && !hasAudit) {
-    return null;
-  }
-
   return (
     <motion.section aria-label="Backend order data" className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr]" variants={fadeUpMotion}>
       {detail.documentChecklist ? <DocumentChecklistPanel checklist={detail.documentChecklist} /> : null}
       {detail.paymentSummary ? <PaymentSummaryPanel payment={detail.paymentSummary} /> : null}
       {detail.auditTimeline?.length ? <AuditTimelinePanel items={detail.auditTimeline} /> : null}
+      <StageActionPanel detail={detail} />
     </motion.section>
+  );
+}
+
+function StageActionPanel({ detail }: { detail: TransactionDetail }) {
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function advance(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const notes = String(new FormData(event.currentTarget).get("notes") || "").trim();
+    setPending(true);
+    setError(undefined);
+    try {
+      await advanceOrderStage(detail.id, { notes: notes || undefined });
+      window.location.reload();
+    } catch (nextError) {
+      setError(getErrorMessage(nextError));
+      setPending(false);
+    }
+  }
+
+  if (detail.status === "Closed") return null;
+
+  return (
+    <motion.article className="rounded-[6px] border border-[#dce5ef] bg-[#f8fbff] p-3 xl:col-span-2" variants={fadeUpMotion}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-[12px] font-semibold text-[#303034]">Lifecycle control</h2>
+          <p className="mt-1 text-[11px] text-[#85858d]">Current stage: {detail.stageLabel}. The backend validates whether your role can advance it.</p>
+        </div>
+        <button type="button" onClick={() => setOpen((current) => !current)} className="h-9 rounded-[5px] bg-[#15447c] px-4 text-[11px] font-semibold text-white hover:bg-[#0e3869]">Advance stage</button>
+      </div>
+      {open ? <form onSubmit={advance} className="mt-3 flex flex-col gap-2 border-t border-[#dce5ef] pt-3 sm:flex-row"><input name="notes" placeholder="Transition notes (optional)" className="h-9 flex-1 rounded-[5px] border border-[#d8dee6] bg-white px-3 text-[11px] outline-none focus:border-[#3971ad]"/><button disabled={pending} className="h-9 rounded-[5px] bg-[#986115] px-4 text-[11px] font-semibold text-white disabled:opacity-60">{pending ? "Advancing…" : "Confirm transition"}</button></form> : null}
+      {error ? <p className="mt-2 text-[11px] font-medium text-[#a73640]">{error}</p> : null}
+    </motion.article>
   );
 }
 

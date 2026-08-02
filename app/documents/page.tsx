@@ -1,0 +1,1 @@
+import { ProtectedRoute } from "@/features/auth/protected-route";import { DocumentsClient } from "@/features/management/documents-client";export default function DocumentsPage(){return <ProtectedRoute><DocumentsClient/></ProtectedRoute>}

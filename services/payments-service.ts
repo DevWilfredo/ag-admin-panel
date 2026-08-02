@@ -19,10 +19,10 @@ export type PaymentDto = {
 export type CreatePaymentPayload = {
   orderId: string;
   amount: number;
-  currency: string;
-  escrowBank: string;
-  loanAmount: number;
-  interestAmount: number;
+  currency?: string;
+  escrowBank?: string;
+  loanAmount?: number;
+  interestAmount?: number;
 };
 
 export type CreatePaymentResponse = {
@@ -30,7 +30,7 @@ export type CreatePaymentResponse = {
 };
 
 export type MarkPaymentSentPayload = {
-  escrowBank: string;
+  escrowBank?: string;
   notes?: string;
 };
 
