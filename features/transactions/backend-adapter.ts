@@ -1,8 +1,14 @@
 import { ApiError, getErrorMessage } from "@/services/api-errors";
 import { getCachedCurrentUser } from "@/services/auth-service";
-import { getDocumentChecklist, type DocumentChecklistDto } from "@/services/documents-service";
 import {
-  getOrder,
+  getInventoryByOrder,
+  type InventoryDto,
+} from "@/services/inventory-service";
+import {
+  getDocumentChecklist,
+  type DocumentChecklistDto,
+} from "@/services/documents-service";
+import {
   getOrderAudit,
   getOrderStageIndex,
   isFinalOrderStatus,
@@ -12,7 +18,17 @@ import {
   type OrderDto,
   type OrderListItemDto,
 } from "@/services/orders-service";
-import { getPaymentByOrder, type PaymentDto } from "@/services/payments-service";
+import { getWarehouse, type WarehouseDto } from "@/services/warehouses-service";
+import {
+  getPaymentByOrder,
+  type PaymentDto,
+} from "@/services/payments-service";
+import {
+  getVesselByOrder,
+  getVesselLogs,
+  type VesselDetails,
+  type VesselPosition,
+} from "@/services/vessels-service";
 import type {
   TransactionAuditItem,
   TransactionDetail,
@@ -30,6 +46,10 @@ type LoadTransactionsOptions = {
   selectedOrderId?: string;
   selectedTransaction?: string;
   tab: TransactionTabKey;
+  orderNumber?: string;
+  commodityType?: string;
+  dateFrom?: string;
+  dateTo?: string;
 };
 
 type ResourceResult<T> =
@@ -48,26 +68,15 @@ const tabDefinitions: {
   { key: "alerts", label: "Alerts" },
 ];
 
-const mapPreview = {
-  labels: [
-    "Barranquilla",
-    "Cartagena de Indias",
-    "Maracaibo",
-    "Valledupar",
-    "Caracas",
-    "Puerto La Cruz",
-    "Trinidad y Tobago",
-  ],
-  primaryPinLabel: "Current vessel position unavailable",
-  secondaryPinLabel: "Destination marker unavailable",
-};
-
-export async function loadTransactionsBackendState(options: LoadTransactionsOptions): Promise<TransactionsDataState> {
+export async function loadTransactionsBackendState(
+  options: LoadTransactionsOptions,
+): Promise<TransactionsDataState> {
   if (options.tab === "alerts") {
     return {
       status: "empty",
       title: "Alerts are not available",
-      message: "The backend does not document an alert endpoint or alert model yet.",
+      message:
+        "The backend does not document an alert endpoint or alert model yet.",
     };
   }
 
@@ -76,6 +85,10 @@ export async function loadTransactionsBackendState(options: LoadTransactionsOpti
       limit: 20,
       page: 1,
       status: options.tab === "closed" ? "FUNDS_DISTRIBUTED" : undefined,
+      orderNumber: options.orderNumber,
+      commodityType: options.commodityType,
+      dateFrom: options.dateFrom,
+      dateTo: options.dateTo,
     });
     const visibleOrders = filterOrdersForTab(listResponse.orders, options.tab);
 
@@ -88,25 +101,44 @@ export async function loadTransactionsBackendState(options: LoadTransactionsOpti
     }
 
     const selectedOrder = selectOrder(visibleOrders, options);
-    const orderDetail = await loadOrderDetail(selectedOrder);
-    const [auditResult, checklistResult, paymentResult] = await Promise.all([
+    const [
+      auditResult,
+      checklistResult,
+      paymentResult,
+      vesselResult,
+      vesselLogsResult,
+      inventoryResult,
+    ] = await Promise.all([
       loadResource(() => getOrderAudit(selectedOrder.id)),
       loadResource(() => getDocumentChecklist(selectedOrder.id)),
       loadResource(() => getPaymentByOrder(selectedOrder.id)),
+      loadResource(() => getVesselByOrder(selectedOrder.id)),
+      loadResource(() => getVesselLogs(selectedOrder.id)),
+      loadResource(() => getInventoryByOrder(selectedOrder.id)),
     ]);
+    const warehouseResult =
+      inventoryResult.status === "ready" && inventoryResult.data.warehouse?.id
+        ? await loadResource(() => getWarehouse(inventoryResult.data.warehouse!.id!))
+        : ({ status: "missing" } as const);
 
     return {
       status: "ready",
       data: {
         header: buildTransactionsHeader(),
         resultCount: `${listResponse.pagination.total} total / ${visibleOrders.length} shown`,
-        selectedTransaction: mapOrderToTransactionDetail(orderDetail, {
+        selectedTransaction: mapOrderToTransactionDetail(selectedOrder, {
           auditResult,
           checklistResult,
           paymentResult,
+          vesselResult,
+          vesselLogsResult,
+          inventoryResult,
+          warehouseResult,
         }),
         tabs: buildTabs(options.tab),
-        transactions: visibleOrders.map((order) => mapOrderToTransactionListItem(order, options.tab)),
+        transactions: visibleOrders.map((order) =>
+          mapOrderToTransactionListItem(order, options.tab),
+        ),
       },
     };
   } catch (error) {
@@ -114,7 +146,10 @@ export async function loadTransactionsBackendState(options: LoadTransactionsOpti
   }
 }
 
-export function mapOrderToTransactionListItem(order: OrderListItemDto | OrderDto, tab: TransactionTabKey = "all"): TransactionListItem {
+export function mapOrderToTransactionListItem(
+  order: OrderListItemDto | OrderDto,
+  tab: TransactionTabKey = "all",
+): TransactionListItem {
   const status = mapOrderVisualStatus(order.status);
 
   return {
@@ -140,7 +175,9 @@ function buildTransactionsHeader() {
     avatarLabel: user ? `${user.fullName} profile` : "User profile",
     avatarSrc: "/user-avatar.png",
     profileName: user?.fullName,
-    profileSubtitle: user ? `${formatRole(user.role)} - AgroTrust Backoffice` : undefined,
+    profileSubtitle: user
+      ? `${formatRole(user.role)} - AgroTrust Backoffice`
+      : undefined,
   };
 }
 
@@ -151,7 +188,10 @@ function buildTabs(activeTab: TransactionTabKey): TransactionTab[] {
   }));
 }
 
-function filterOrdersForTab(orders: OrderListItemDto[], tab: TransactionTabKey) {
+function filterOrdersForTab(
+  orders: OrderListItemDto[],
+  tab: TransactionTabKey,
+) {
   if (tab === "active") {
     return orders.filter((order) => !isFinalOrderStatus(order.status));
   }
@@ -159,25 +199,26 @@ function filterOrdersForTab(orders: OrderListItemDto[], tab: TransactionTabKey) 
   return orders;
 }
 
-function selectOrder(orders: OrderListItemDto[], options: LoadTransactionsOptions) {
+function selectOrder(
+  orders: OrderListItemDto[],
+  options: LoadTransactionsOptions,
+) {
   const requested = options.selectedOrderId || options.selectedTransaction;
 
   if (!requested) {
     return orders[0];
   }
 
-  return orders.find((order) => order.id === requested || order.orderNumber === requested) ?? orders[0];
+  return (
+    orders.find(
+      (order) => order.id === requested || order.orderNumber === requested,
+    ) ?? orders[0]
+  );
 }
 
-async function loadOrderDetail(order: OrderListItemDto) {
-  try {
-    return await getOrder(order.id);
-  } catch {
-    return order;
-  }
-}
-
-async function loadResource<T>(loader: () => Promise<T>): Promise<ResourceResult<T>> {
+async function loadResource<T>(
+  loader: () => Promise<T>,
+): Promise<ResourceResult<T>> {
   try {
     return {
       status: "ready",
@@ -194,7 +235,10 @@ async function loadResource<T>(loader: () => Promise<T>): Promise<ResourceResult
 
     return {
       status: "error",
-      message: getErrorMessage(error, "The backend resource could not be loaded."),
+      message: getErrorMessage(
+        error,
+        "The backend resource could not be loaded.",
+      ),
     };
   }
 }
@@ -219,7 +263,10 @@ function mapLoadError(error: unknown): TransactionsDataState {
   return {
     status: "error",
     title: "Transactions unavailable",
-    message: getErrorMessage(error, "The backend orders source could not be loaded."),
+    message: getErrorMessage(
+      error,
+      "The backend orders source could not be loaded.",
+    ),
   };
 }
 
@@ -229,6 +276,10 @@ function mapOrderToTransactionDetail(
     auditResult: ResourceResult<OrderAuditLogDto[]>;
     checklistResult: ResourceResult<DocumentChecklistDto>;
     paymentResult: ResourceResult<PaymentDto>;
+    vesselResult: ResourceResult<VesselDetails>;
+    vesselLogsResult: ResourceResult<VesselPosition[]>;
+    inventoryResult: ResourceResult<InventoryDto>;
+    warehouseResult: ResourceResult<WarehouseDto>;
   },
 ): TransactionDetail {
   const status = mapOrderVisualStatus(order.status);
@@ -236,43 +287,120 @@ function mapOrderToTransactionDetail(
   const checklist = mapChecklist(resources.checklistResult);
   const payment = mapPayment(resources.paymentResult);
   const auditTimeline = mapAuditTimeline(resources.auditResult);
-  const paymentAmount = resources.paymentResult.status === "ready" ? formatMoney(resources.paymentResult.data.amount, resources.paymentResult.data.currency) : "Not available";
+  const vessel = mapVessel(resources.vesselResult, resources.vesselLogsResult);
+  const warehouse = mapWarehouse(resources.inventoryResult, resources.warehouseResult);
+  const paymentAmount =
+    resources.paymentResult.status === "ready"
+      ? formatMoney(
+          resources.paymentResult.data.amount,
+          resources.paymentResult.data.currency,
+        )
+      : "Not available";
 
   return {
     id: order.id,
     alerts: [],
     auditTimeline,
     backendStatusLabel: formatOrderStatus(order.status),
-    backendUnsupported: [
-      "Alerts, ETA, current coordinates, shipment tracking, and export are not documented backend capabilities.",
-    ],
+    backendUnsupported: ["Alerts and export are not documented backend capabilities."],
     commodity: order.commodityType || "Commodity not provided",
     documentChecklist: checklist,
-    etaLabel: "ETA not provided",
+    etaLabel: vessel?.eta ? formatDateTime(vessel.eta) : "ETA not provided",
     keyInfo: [
-      { label: "ETA", value: "Not provided" },
+      {
+        label: "ETA",
+        value: vessel?.eta ? formatDateTime(vessel.eta) : "Not provided",
+      },
       { label: "PROGRESS", value: `${progressPercent}%` },
-      { label: "VESSEL", value: getVesselLabel(order.vessel) },
+      {
+        label: "VESSEL",
+        value: vessel?.vesselName || getVesselLabel(order.vessel),
+      },
       { label: "DOCUMENTS", value: checklist.uploadedLabel },
       { label: "PAYMENT", value: paymentAmount },
     ],
-    map: mapPreview,
     number: order.orderNumber || order.id,
     paymentSummary: payment,
     progressPercent,
     route: {
       origin: getParticipantName(order.producer, "Origin not provided"),
-      destination: order.destinationCountry || getParticipantName(order.buyer, "Destination not provided"),
+      destination:
+        order.destinationCountry ||
+        getParticipantName(order.buyer, "Destination not provided"),
     },
     stageLabel: formatOrderStatus(order.status),
     status,
-    tracker: buildBackendTracker(order.status),
+    tracker: buildBackendTracker(order.status, vessel, warehouse),
     trackerSummary: `Step ${Math.max(getOrderStageIndex(order.status), 1)} of ${orderStatuses.length}`,
     volume: formatQuantity(order.quantity, order.unit),
+    vesselDetails: vessel,
+    warehouseDetails: warehouse,
   };
 }
 
-function mapChecklist(result: ResourceResult<DocumentChecklistDto>): TransactionDocumentChecklist {
+function mapWarehouse(
+  inventory: ResourceResult<InventoryDto>,
+  warehouse: ResourceResult<WarehouseDto>,
+) {
+  if (inventory.status !== "ready") return undefined;
+  const inventoryWarehouse = inventory.data.warehouse;
+  const detail = warehouse.status === "ready" ? warehouse.data : undefined;
+  return {
+    name: detail?.name || inventoryWarehouse?.name || "Assigned warehouse",
+    location: detail?.location || inventoryWarehouse?.location,
+    latitude: detail?.latitude ?? inventoryWarehouse?.latitude ?? undefined,
+    longitude: detail?.longitude ?? inventoryWarehouse?.longitude ?? undefined,
+    custodyStatus: inventory.data.custodyStatus,
+    receiptNumber: inventory.data.receipt?.receiptNumber,
+  };
+}
+
+function mapVessel(
+  result: ResourceResult<VesselDetails>,
+  logs: ResourceResult<VesselPosition[]>,
+) {
+  if (result.status !== "ready") return undefined;
+  const data = result.data;
+  const position = data.currentPosition || data.position;
+  const latitude = position?.latitude ?? data.latitude ?? undefined;
+  const longitude = position?.longitude ?? data.longitude ?? undefined;
+  const rawStatus = data.trackingStatus || data.status;
+  const history =
+    logs.status === "ready"
+      ? logs.data
+          .filter(
+            (item) =>
+              item.latitude !== undefined && item.longitude !== undefined,
+          )
+          .map((item) => ({
+            latitude: item.latitude!,
+            longitude: item.longitude!,
+            label: item.portOfCall,
+            timestamp: item.timestamp || item.createdAt,
+          }))
+      : [];
+  return {
+    vesselName: data.vesselName || data.name || "Assigned vessel",
+    shippingLine: data.shippingLine,
+    voyageNumber: data.voyageNumber,
+    billOfLading: data.billOfLading,
+    scac: data.scac,
+    eta: position?.eta || data.eta,
+    latitude,
+    longitude,
+    speed: position?.speed,
+    portOfCall: position?.portOfCall || data.currentPortOfCall || undefined,
+    status:
+      latitude !== undefined && longitude !== undefined && rawStatus === "TRACKING_FAILED"
+        ? "MANUAL_POSITION"
+        : rawStatus,
+    history,
+  };
+}
+
+function mapChecklist(
+  result: ResourceResult<DocumentChecklistDto>,
+): TransactionDocumentChecklist {
   if (result.status === "ready") {
     return {
       completionPercent: result.data.completionPercentage,
@@ -310,7 +438,9 @@ function mapChecklist(result: ResourceResult<DocumentChecklistDto>): Transaction
   };
 }
 
-function mapPayment(result: ResourceResult<PaymentDto>): TransactionPaymentSummary {
+function mapPayment(
+  result: ResourceResult<PaymentDto>,
+): TransactionPaymentSummary {
   if (result.status === "ready") {
     const amount = formatMoney(result.data.amount, result.data.currency);
 
@@ -342,33 +472,57 @@ function mapPayment(result: ResourceResult<PaymentDto>): TransactionPaymentSumma
   };
 }
 
-function mapAuditTimeline(result: ResourceResult<OrderAuditLogDto[]>): TransactionAuditItem[] {
+function mapAuditTimeline(
+  result: ResourceResult<OrderAuditLogDto[]>,
+): TransactionAuditItem[] {
   if (result.status !== "ready") {
     return [];
   }
 
   return result.data.slice(0, 4).map((item) => ({
-    detail: item.notes || `${formatOrderStatus(item.fromStatus || "CREATED")} -> ${formatOrderStatus(item.toStatus)}`,
+    detail:
+      item.notes ||
+      `${formatOrderStatus(item.fromStatus || "CREATED")} -> ${formatOrderStatus(item.toStatus)}`,
     timeLabel: formatDateTime(item.createdAt),
     title: `${formatOrderStatus(item.toStatus)} by ${item.user?.fullName || "Unknown user"}`,
   }));
 }
 
-function buildBackendTracker(status: string): TrackerStep[] {
+function buildBackendTracker(
+  status: string,
+  vessel?: TransactionDetail["vesselDetails"],
+  warehouse?: TransactionDetail["warehouseDetails"],
+): TrackerStep[] {
   const currentStage = Math.max(getOrderStageIndex(status), 1);
 
   return orderStatuses.map((orderStatus, index) => {
     const step = index + 1;
 
+    const warehouseCheckpoint = [0, 2, 3].includes(index);
+    const vesselCheckpoint = [5, 6, 7].includes(index);
     return {
       label: getShortStageLabel(orderStatus),
-      state: step < currentStage ? "complete" : step === currentStage ? "current" : "upcoming",
+      state:
+        step < currentStage
+          ? "complete"
+          : step === currentStage
+            ? "current"
+            : "upcoming",
       step,
+      locationPreview:
+        warehouseCheckpoint && warehouse?.latitude !== undefined && warehouse.longitude !== undefined
+          ? { kind: "warehouse" as const, title: warehouse.name, subtitle: warehouse.location, latitude: warehouse.latitude, longitude: warehouse.longitude }
+          : vesselCheckpoint && vessel?.latitude !== undefined && vessel.longitude !== undefined
+            ? { kind: "vessel" as const, title: vessel.vesselName, subtitle: vessel.portOfCall, latitude: vessel.latitude, longitude: vessel.longitude }
+            : undefined,
     };
   });
 }
 
-function buildOrderHref(order: OrderListItemDto | OrderDto, tab: TransactionTabKey) {
+function buildOrderHref(
+  order: OrderListItemDto | OrderDto,
+  tab: TransactionTabKey,
+) {
   const params = new URLSearchParams();
 
   if (tab !== "all") {
@@ -400,7 +554,9 @@ function formatQuantity(quantity?: number | string, unit?: string) {
   }
 
   const parsed = typeof quantity === "number" ? quantity : Number(quantity);
-  const value = Number.isFinite(parsed) ? new Intl.NumberFormat("en-US").format(parsed) : String(quantity);
+  const value = Number.isFinite(parsed)
+    ? new Intl.NumberFormat("en-US").format(parsed)
+    : String(quantity);
 
   return `${value}${unit ? ` ${unit}` : ""}`;
 }
@@ -490,7 +646,10 @@ function getShortStageLabel(status: string) {
   return labels[status] || formatOrderStatus(status);
 }
 
-function getParticipantName(participant: OrderDto["producer"], fallback: string) {
+function getParticipantName(
+  participant: OrderDto["producer"],
+  fallback: string,
+) {
   return participant?.fullName || fallback;
 }
 

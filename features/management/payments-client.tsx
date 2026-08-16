@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "@/components/app-shell";
+import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { getErrorMessage } from "@/services/api-errors";
+import { hasCapability } from "@/services/authorization";
 import { listOrders, type OrderListItemDto } from "@/services/orders-service";
 import {
   createPayment,
@@ -27,6 +29,9 @@ import {
 } from "./management-ui";
 type Action = "create" | "sent" | "received" | "distribute";
 export function PaymentsClient() {
+  const role = useAuthenticatedUser()?.role;
+  const canManage = hasCapability(role, "manage:payments");
+  const canViewLenderHistory = role === "LENDER" || role === "ADMIN";
   const [orders, setOrders] = useState<OrderListItemDto[]>([]),
     [orderId, setOrderId] = useState(""),
     [payment, setPayment] = useState<PaymentDto>(),
@@ -40,7 +45,9 @@ export function PaymentsClient() {
     try {
       const [o, h] = await Promise.all([
         listOrders({ page: 1, limit: 100 }),
-        getLenderPaymentHistory().catch(() => undefined),
+        canViewLenderHistory
+          ? getLenderPaymentHistory().catch(() => undefined)
+          : Promise.resolve(undefined),
       ]);
       setOrders(o.orders);
       setHistory(h);
@@ -48,7 +55,7 @@ export function PaymentsClient() {
     } catch (e) {
       setError(getErrorMessage(e));
     }
-  }, []);
+  }, [canViewLenderHistory]);
   useEffect(() => {
     const timer = window.setTimeout(() => void boot(), 0);
     return () => window.clearTimeout(timer);
@@ -168,7 +175,7 @@ export function PaymentsClient() {
               value={formatValue(payment.distributedAt)}
             />
           </div>
-          <div className="flex flex-wrap gap-2 border-t border-[#ececee] p-4">
+          {canManage ? <div className="flex flex-wrap gap-2 border-t border-[#ececee] p-4">
             <SecondaryButton onClick={() => setModal("sent")}>
               Mark sent
             </SecondaryButton>
@@ -178,10 +185,10 @@ export function PaymentsClient() {
             <PrimaryButton onClick={() => setModal("distribute")}>
               Distribute funds
             </PrimaryButton>
-          </div>
+          </div> : null}
         </section>
       )}{" "}
-      {!payment && !loading && orderId ? (
+      {canManage && !payment && !loading && orderId ? (
         <div className="flex">
           <PrimaryButton onClick={() => setModal("create")}>
             Create payment record
@@ -207,7 +214,7 @@ export function PaymentsClient() {
           </div>
         </section>
       ) : null}
-      {modal ? (
+      {canManage && modal ? (
         <Modal title={titles[modal]} onClose={() => setModal(null)}>
           <form onSubmit={act} className="grid gap-4 sm:grid-cols-2">
             {modal === "create" ? (

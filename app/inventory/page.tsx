@@ -1,1 +1,1 @@
-import { ProtectedRoute } from "@/features/auth/protected-route"; import { InventoryClient } from "@/features/management/inventory-client"; export default function InventoryPage(){return <ProtectedRoute><InventoryClient/></ProtectedRoute>;}
+import { ProtectedRoute } from "@/features/auth/protected-route"; import { InventoryClient } from "@/features/management/inventory-client"; export default function InventoryPage(){return <ProtectedRoute capability="view:inventory"><InventoryClient/></ProtectedRoute>;}

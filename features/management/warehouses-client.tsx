@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "@/components/app-shell";
+import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { getErrorMessage } from "@/services/api-errors";
+import { hasCapability } from "@/services/authorization";
 import {
   createWarehouse,
   deleteWarehouse,
@@ -23,6 +25,10 @@ import {
 } from "./management-ui";
 
 export function WarehousesClient() {
+  const canManage = hasCapability(
+    useAuthenticatedUser()?.role,
+    "manage:warehouses",
+  );
   const [rows, setRows] = useState<WarehouseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
@@ -58,12 +64,7 @@ export function WarehousesClient() {
       };
       if (modal === "edit" && selected)
         await updateWarehouse(selected.id, payload);
-      else
-        await createWarehouse({
-          ...payload,
-          latitude: payload.latitude || 0,
-          longitude: payload.longitude || 0,
-        });
+      else await createWarehouse(payload);
       setModal(null);
       setNotice(modal === "edit" ? "Warehouse updated." : "Warehouse created.");
       await load();
@@ -89,7 +90,7 @@ export function WarehousesClient() {
       <PageHeading
         title="Warehouses"
         description="Manage storage locations and their assigned inventory."
-        action={
+        action={canManage ? (
           <PrimaryButton
             onClick={() => {
               setSelected(undefined);
@@ -98,12 +99,17 @@ export function WarehousesClient() {
           >
             New warehouse
           </PrimaryButton>
-        }
+        ) : undefined}
       />
       {notice ? <Notice message={notice} /> : null}
       {error && rows.length ? <Notice error message={error} /> : null}
       {!rows.length ? (
-        <EmptyTable loading={loading} error={error} label="warehouses" onRetry={load} />
+        <EmptyTable
+          loading={loading}
+          error={error}
+          label="warehouses"
+          onRetry={load}
+        />
       ) : (
         <div className="overflow-hidden rounded-[8px] border border-[#e4e4e7] bg-white">
           <div className="overflow-x-auto">
@@ -115,7 +121,9 @@ export function WarehousesClient() {
                   <th className="px-5 py-3">Coordinates</th>
                   <th className="px-5 py-3">Keeper</th>
                   <th className="px-5 py-3">Inventory</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
+                  {canManage ? (
+                    <th className="px-5 py-3 text-right">Actions</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -137,24 +145,26 @@ export function WarehousesClient() {
                     <td className="px-5 py-4">
                       {row._count?.inventories ?? row.inventories?.length ?? 0}
                     </td>
-                    <td className="px-5 py-4">
-                      <div className="flex justify-end gap-2">
-                        <SecondaryButton
-                          onClick={() => {
-                            setSelected(row);
-                            setModal("edit");
-                          }}
-                        >
-                          Edit
-                        </SecondaryButton>
-                        <SecondaryButton
-                          danger
-                          onClick={() => void remove(row)}
-                        >
-                          Delete
-                        </SecondaryButton>
-                      </div>
-                    </td>
+                    {canManage ? (
+                      <td className="px-5 py-4">
+                        <div className="flex justify-end gap-2">
+                          <SecondaryButton
+                            onClick={() => {
+                              setSelected(row);
+                              setModal("edit");
+                            }}
+                          >
+                            Edit
+                          </SecondaryButton>
+                          <SecondaryButton
+                            danger
+                            onClick={() => void remove(row)}
+                          >
+                            Delete
+                          </SecondaryButton>
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -162,7 +172,7 @@ export function WarehousesClient() {
           </div>
         </div>
       )}
-      {modal ? (
+      {canManage && modal ? (
         <Modal
           title={modal === "edit" ? "Edit warehouse" : "New warehouse"}
           description="Add the warehouse location and optional map coordinates."

@@ -22,8 +22,8 @@ export type WarehouseDto = {
 export type CreateWarehousePayload = {
   name: string;
   location: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
   keeperId?: string;
 };
 
@@ -62,7 +62,10 @@ export function getWarehouse(warehouseId: string) {
   });
 }
 
-export function updateWarehouse(warehouseId: string, payload: UpdateWarehousePayload) {
+export function updateWarehouse(
+  warehouseId: string,
+  payload: UpdateWarehousePayload,
+) {
   return apiRequest<WarehouseMutationResponse>(`/warehouses/${warehouseId}`, {
     auth: true,
     body: payload,

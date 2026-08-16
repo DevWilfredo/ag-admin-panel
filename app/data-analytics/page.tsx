@@ -1,5 +1,4 @@
-import { DataAnalyticsScreen } from "@/features/data-analytics/data-analytics-screen";
-import { getDataAnalyticsMockState } from "@/features/data-analytics/mock-data-analytics";
+import { DataAnalyticsClient } from "@/features/data-analytics/data-analytics-client";
 import type { AnalyticsTabKey } from "@/features/data-analytics/types";
 import { ProtectedRoute } from "@/features/auth/protected-route";
 
@@ -11,11 +10,9 @@ export default async function DataAnalyticsPage({ searchParams }: DataAnalyticsP
   const params = await searchParams;
   const previewState = typeof params?.state === "string" ? params.state : undefined;
   const requestedTab = parseAnalyticsTab(typeof params?.tab === "string" ? params.tab : undefined);
-  const dataAnalyticsState = getDataAnalyticsMockState(previewState, requestedTab);
-
   return (
-    <ProtectedRoute>
-      <DataAnalyticsScreen activeTab={requestedTab} state={dataAnalyticsState} />
+    <ProtectedRoute capability="view:analytics">
+      <DataAnalyticsClient activeTab={requestedTab} previewState={previewState} />
     </ProtectedRoute>
   );
 }

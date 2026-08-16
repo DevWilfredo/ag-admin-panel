@@ -40,7 +40,9 @@ export type LoginResponse = SessionTokens & {
   };
 };
 
-export async function login(credentials: LoginCredentials): Promise<AuthenticatedSession> {
+export async function login(
+  credentials: LoginCredentials,
+): Promise<AuthenticatedSession> {
   const loginResponse = await apiRequest<LoginResponse>("/auth/login", {
     body: credentials,
     method: "POST",
@@ -106,6 +108,18 @@ export function getCachedCurrentUser() {
 
 export function logoutLocal() {
   clearStoredSession();
+}
+
+export async function logout() {
+  try {
+    await apiRequest<{ message?: string }>("/auth/logout", {
+      auth: true,
+      method: "POST",
+      retryOnUnauthorized: false,
+    });
+  } finally {
+    clearStoredSession();
+  }
 }
 
 function isLoginResponse(response: unknown): response is LoginResponse {

@@ -81,6 +81,9 @@ export type ListOrdersParams = {
   commodityType?: string;
   page?: number;
   limit?: number;
+  orderNumber?: string;
+  dateFrom?: string;
+  dateTo?: string;
 };
 
 export type ListOrdersResponse = {
@@ -91,7 +94,7 @@ export type ListOrdersResponse = {
 export type CreateOrderPayload = {
   commodityType: string;
   quantity: number;
-  unit: string;
+  unit?: string;
   lotId: string;
   destinationCountry: string;
   producerId: string;
@@ -136,17 +139,13 @@ export async function listOrders(params: ListOrdersParams = {}) {
   if (params.limit) {
     searchParams.set("limit", String(params.limit));
   }
+  if (params.orderNumber) searchParams.set("orderNumber", params.orderNumber);
+  if (params.dateFrom) searchParams.set("dateFrom", params.dateFrom);
+  if (params.dateTo) searchParams.set("dateTo", params.dateTo);
 
   const query = searchParams.toString();
 
   return apiRequest<ListOrdersResponse>(`/orders${query ? `?${query}` : ""}`, {
-    auth: true,
-    method: "GET",
-  });
-}
-
-export function getOrder(orderId: string) {
-  return apiRequest<OrderDto>(`/orders/${orderId}`, {
     auth: true,
     method: "GET",
   });
@@ -160,7 +159,10 @@ export function createOrder(payload: CreateOrderPayload) {
   });
 }
 
-export function advanceOrderStage(orderId: string, payload: AdvanceOrderPayload = {}) {
+export function advanceOrderStage(
+  orderId: string,
+  payload: AdvanceOrderPayload = {},
+) {
   return apiRequest<AdvanceOrderResponse>(`/orders/${orderId}/advance`, {
     auth: true,
     body: payload,
@@ -175,12 +177,16 @@ export function getOrderAudit(orderId: string) {
   });
 }
 
-export function isOrderStatus(status: string | undefined | null): status is OrderStatus {
+export function isOrderStatus(
+  status: string | undefined | null,
+): status is OrderStatus {
   return orderStatuses.includes(status as OrderStatus);
 }
 
 export function getOrderStageIndex(status: string | undefined | null) {
-  const index = orderStatuses.findIndex((orderStatus) => orderStatus === status);
+  const index = orderStatuses.findIndex(
+    (orderStatus) => orderStatus === status,
+  );
 
   return index >= 0 ? index + 1 : 0;
 }

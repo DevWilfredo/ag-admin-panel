@@ -22,7 +22,13 @@ export type InventoryDto = {
   order?: {
     orderNumber?: string;
   };
-  warehouse?: unknown;
+  warehouse?: {
+    id?: string;
+    name?: string;
+    location?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  } | null;
 };
 
 export type ListInventoryParams = {

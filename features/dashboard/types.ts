@@ -34,6 +34,7 @@ export type QuickAction = {
   accessibilityLabel: string;
   icon: "plus-square" | "download" | "trend" | "document";
   href: string;
+  downloadName?: string;
   disabled?: boolean;
 };
 

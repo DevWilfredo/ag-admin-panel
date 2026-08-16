@@ -1,13 +1,15 @@
 import { ApiError, getErrorMessage } from "@/services/api-errors";
-import { getCachedCurrentUser } from "@/services/auth-service";
+import type { CurrentUser } from "@/services/session-service";
 import { getOrderAudit, listOrders, type OrderAuditLogDto, type OrderListItemDto } from "@/services/orders-service";
 import { dashboardMockData } from "./mock-dashboard";
 import type { ActivityItem, DashboardData, DashboardDataState, RecentTransaction } from "./types";
 
-export async function loadDashboardBackendState(): Promise<DashboardDataState> {
+export async function loadDashboardBackendState(
+  user: CurrentUser,
+): Promise<DashboardDataState> {
   try {
     const ordersResponse = await listOrders({
-      limit: 5,
+      limit: 100,
       page: 1,
     });
     const auditItems = await loadRecentAuditItems(ordersResponse.orders);
@@ -16,10 +18,31 @@ export async function loadDashboardBackendState(): Promise<DashboardDataState> {
       status: "ready",
       data: {
         ...dashboardMockData,
-        header: buildDashboardHeader(),
-        quickActions: buildQuickActions(),
-        recentActivity: auditItems.length > 0 ? auditItems : dashboardMockData.recentActivity,
-        recentTransactions: ordersResponse.orders.map(mapOrderToRecentTransaction),
+        header: buildDashboardHeader(user),
+        quickActions: buildQuickActions(user, ordersResponse.orders),
+        metrics: buildMetrics(ordersResponse.orders, ordersResponse.pagination.total),
+        recentActivity: auditItems,
+        recentTransactions: ordersResponse.orders
+          .slice(0, 5)
+          .map(mapOrderToRecentTransaction),
+        notifications: [],
+        commodityPerformance: {
+          ...dashboardMockData.commodityPerformance,
+          subtitle: "No historical analytics are available for this role",
+          series: dashboardMockData.commodityPerformance.series.map((series) => ({
+            ...series,
+            values: [],
+          })),
+        },
+        loanToValue: {
+          ...dashboardMockData.loanToValue,
+          percent: 0,
+          loanAmount: "Not available",
+          totalValue: "Not available",
+          availableToFinance: "Not available",
+        },
+        statusOverview: buildStatusOverview(ordersResponse.orders),
+        messages: [],
       },
     };
   } catch (error) {
@@ -47,32 +70,144 @@ export async function loadDashboardBackendState(): Promise<DashboardDataState> {
   }
 }
 
-function buildQuickActions() {
-  const user = getCachedCurrentUser();
+function buildQuickActions(user: CurrentUser, orders: OrderListItemDto[]) {
+  const reviewDocuments = {
+    ...dashboardMockData.quickActions.find(
+      (action) => action.id === "review-documents",
+    )!,
+    href: "/documents",
+    accessibilityLabel: "Review documents",
+  };
+  if (user.role !== "ADMIN") return [reviewDocuments];
 
-  return dashboardMockData.quickActions.map((action) => {
-    if (action.id !== "create-transaction" || user?.role === "ADMIN") {
-      return action;
-    }
+  const exportReport = {
+    ...dashboardMockData.quickActions.find(
+      (action) => action.id === "export-report",
+    )!,
+    accessibilityLabel: "Export visible transactions report as CSV",
+    downloadName: "agrotrust-transactions.csv",
+    href: buildOrdersCsvDataUrl(orders),
+  };
 
-    return {
-      ...action,
-      accessibilityLabel: "Create transaction is restricted to administrators",
-      disabled: true,
-    };
-  });
+  return [
+    {
+      ...dashboardMockData.quickActions.find(
+        (action) => action.id === "create-transaction",
+      )!,
+      accessibilityLabel: "Create transaction",
+    },
+    exportReport,
+    {
+      ...dashboardMockData.quickActions.find(
+        (action) => action.id === "open-analytics",
+      )!,
+      accessibilityLabel: "Open data analytics",
+      href: "/data-analytics",
+    },
+    reviewDocuments,
+  ];
 }
 
-function buildDashboardHeader(): DashboardData["header"] {
-  const user = getCachedCurrentUser();
+function buildOrdersCsvDataUrl(orders: OrderListItemDto[]) {
+  const rows = [
+    ["Order number", "Commodity", "Quantity", "Unit", "Destination", "Status"],
+    ...orders.map((order) => [
+      order.orderNumber || order.id,
+      order.commodityType || "",
+      order.quantity ?? "",
+      order.unit || "",
+      order.destinationCountry || "",
+      order.status || "",
+    ]),
+  ];
+  const csv = rows
+    .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))
+    .join("\r\n");
 
+  return `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+}
+
+function buildDashboardHeader(user: CurrentUser): DashboardData["header"] {
   return {
     ...dashboardMockData.header,
-    avatarLabel: user ? `${user.fullName} profile` : dashboardMockData.header.avatarLabel,
-    profileName: user?.fullName,
-    profileSubtitle: user ? `${formatRole(user.role)} - AgroTrust Backoffice` : undefined,
-    unreadNotifications: dashboardMockData.notifications.filter((notification) => notification.unread).length,
+    avatarLabel: `${user.fullName} profile`,
+    profileName: user.fullName,
+    profileSubtitle: `${formatRole(user.role)} - AgroTrust Backoffice`,
+    unreadNotifications: 0,
   };
+}
+
+function buildMetrics(orders: OrderListItemDto[], total: number) {
+  const active = orders.filter(
+    (order) => order.status !== "FUNDS_DISTRIBUTED",
+  ).length;
+  const volume = orders.reduce((sum, order) => {
+    const quantity = Number(order.quantity);
+    return sum + (Number.isFinite(quantity) ? quantity : 0);
+  }, 0);
+
+  return [
+    {
+      label: "Visible Transactions",
+      value: String(total),
+      delta: "Live",
+      deltaContext: "role-filtered backend data",
+    },
+    {
+      label: "Active Contracts",
+      value: String(active),
+      delta: "Live",
+      deltaContext: "among loaded transactions",
+    },
+    {
+      label: "Visible Volume",
+      value: new Intl.NumberFormat("en-US").format(volume),
+      delta: "Live",
+      deltaContext: "units depend on each order",
+    },
+  ];
+}
+
+function buildStatusOverview(orders: OrderListItemDto[]) {
+  const total = orders.length || 1;
+  const definitions = [
+    {
+      label: "Active" as const,
+      color: "blue" as const,
+      matches: (order: OrderListItemDto) =>
+        order.status !== "FUNDS_DISTRIBUTED" &&
+        order.status !== "CARGO_IN_TRANSIT",
+    },
+    {
+      label: "In Transit" as const,
+      color: "green" as const,
+      matches: (order: OrderListItemDto) =>
+        order.status === "CARGO_IN_TRANSIT",
+    },
+    {
+      label: "Alert" as const,
+      color: "red" as const,
+      matches: () => false,
+    },
+    {
+      label: "Completed" as const,
+      color: "amber" as const,
+      matches: (order: OrderListItemDto) =>
+        order.status === "FUNDS_DISTRIBUTED",
+    },
+  ];
+
+  return definitions.map((definition) => {
+    const count = orders.filter(definition.matches).length;
+    const percent = Math.round((count / total) * 100);
+    return {
+      label: definition.label,
+      color: definition.color,
+      count,
+      percentLabel: `${percent}% of visible`,
+      progressPercent: percent,
+    };
+  });
 }
 
 function mapOrderToRecentTransaction(order: OrderListItemDto): RecentTransaction {

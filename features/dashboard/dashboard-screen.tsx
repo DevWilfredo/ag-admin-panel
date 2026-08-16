@@ -101,6 +101,10 @@ export function DashboardScreen({ state }: { state: DashboardDataState }) {
 }
 
 function DashboardReady({ data }: { data: DashboardData }) {
+  const hasCommodityAnalytics = data.commodityPerformance.series.some(
+    (series) => series.values.length > 0,
+  );
+  const hasLoanAnalytics = data.loanToValue.loanAmount !== "Not available";
   return (
     <>
       <motion.div animate="visible" custom={0} initial="hidden" variants={sectionMotion}>
@@ -109,19 +113,25 @@ function DashboardReady({ data }: { data: DashboardData }) {
       <motion.div animate="visible" custom={1} initial="hidden" variants={sectionMotion}>
         <MetricGrid metrics={data.metrics} />
       </motion.div>
-      <motion.section animate="visible" className="grid gap-[26px] xl:grid-cols-[minmax(0,2.08fr)_minmax(340px,1fr)]" custom={2} initial="hidden" variants={sectionMotion}>
+      <motion.section animate="visible" className={`grid gap-[26px] ${data.notifications.length ? "xl:grid-cols-[minmax(0,2.08fr)_minmax(340px,1fr)]" : ""}`} custom={2} initial="hidden" variants={sectionMotion}>
         <RecentTransactions transactions={data.recentTransactions} />
-        <NotificationsPanel notifications={data.notifications} />
+        {data.notifications.length ? (
+          <NotificationsPanel notifications={data.notifications} />
+        ) : null}
       </motion.section>
-      <motion.section animate="visible" className="grid gap-[26px] xl:grid-cols-[minmax(0,2.08fr)_minmax(340px,1fr)]" custom={3} initial="hidden" variants={sectionMotion}>
-        <CommodityPerformanceChart chart={data.commodityPerformance} />
-        <LoanToValueGauge data={data.loanToValue} />
-      </motion.section>
+      {hasCommodityAnalytics || hasLoanAnalytics ? (
+        <motion.section animate="visible" className="grid gap-[26px] xl:grid-cols-[minmax(0,2.08fr)_minmax(340px,1fr)]" custom={3} initial="hidden" variants={sectionMotion}>
+          {hasCommodityAnalytics ? (
+            <CommodityPerformanceChart chart={data.commodityPerformance} />
+          ) : null}
+          {hasLoanAnalytics ? <LoanToValueGauge data={data.loanToValue} /> : null}
+        </motion.section>
+      ) : null}
       <motion.div animate="visible" custom={4} initial="hidden" variants={sectionMotion}>
         <StatusOverview items={data.statusOverview} />
       </motion.div>
-      <motion.section animate="visible" className="grid gap-[26px] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" custom={5} initial="hidden" variants={sectionMotion}>
-        <MessagesPanel messages={data.messages} />
+      <motion.section animate="visible" className={`grid gap-[26px] ${data.messages.length ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : ""}`} custom={5} initial="hidden" variants={sectionMotion}>
+        {data.messages.length ? <MessagesPanel messages={data.messages} /> : null}
         <RecentActivityPanel items={data.recentActivity} />
       </motion.section>
     </>
@@ -129,23 +139,26 @@ function DashboardReady({ data }: { data: DashboardData }) {
 }
 
 function QuickActions({ actions }: { actions: QuickAction[] }) {
+  const compact = actions.length === 1;
   return (
-    <section aria-labelledby="quick-actions-title" className={`${panelClass} px-4 py-5 sm:px-6 sm:py-7`}>
+    <section aria-labelledby="quick-actions-title" className={`${panelClass} px-4 py-4 sm:px-6`}>
+      <div className={compact ? "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" : ""}>
       <div>
         <h2 id="quick-actions-title" className="text-[16px] font-semibold leading-[22px] text-[#343438]">
           Quick Actions
         </h2>
         <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#a3a3a8]">Common tasks and shortcuts</p>
       </div>
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      <div className={compact ? "sm:w-[280px]" : "mt-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4"}>
         {actions.map((action) => (
           <motion.a
             aria-label={action.accessibilityLabel}
             aria-disabled={action.disabled ? "true" : undefined}
-            className={`group flex min-w-0 flex-col items-center justify-center gap-3 rounded-[7px] border border-[#e5e5e7] bg-white px-3 py-4 text-center outline-none transition-colors duration-100 ease-out focus:ring-2 focus:ring-[#2d5f9f]/30 sm:h-[112px] sm:gap-4 sm:px-4 ${
+            className={`group flex min-w-0 items-center justify-center rounded-[7px] border border-[#e5e5e7] bg-white text-center outline-none transition-colors duration-100 ease-out focus:ring-2 focus:ring-[#2d5f9f]/30 ${compact ? "h-12 gap-3 px-4" : "flex-col gap-3 px-3 py-4 sm:h-[112px] sm:gap-4 sm:px-4"} ${
               action.disabled ? "cursor-not-allowed opacity-55" : "hover:border-[#cbdcf1] hover:bg-[#fbfdff]"
             }`}
             href={action.disabled ? undefined : action.href}
+            download={action.downloadName}
             key={action.id}
             initial="rest"
             onClick={action.disabled ? (event) => event.preventDefault() : undefined}
@@ -155,12 +168,13 @@ function QuickActions({ actions }: { actions: QuickAction[] }) {
             whileTap={action.disabled ? undefined : { scale: 0.985 }}
             variants={cardHoverMotion}
           >
-            <motion.span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eaf2fd] transition-colors duration-100 ease-out group-hover:bg-[#dceafa] sm:h-[46px] sm:w-[46px]" variants={quickActionIconMotion}>
+            <motion.span className={`flex items-center justify-center rounded-full bg-[#eaf2fd] transition-colors duration-100 ease-out group-hover:bg-[#dceafa] ${compact ? "h-8 w-8" : "h-10 w-10 sm:h-[46px] sm:w-[46px]"}`} variants={quickActionIconMotion}>
               <QuickActionIcon icon={action.icon} />
             </motion.span>
             <span className="max-w-full text-[12px] font-semibold leading-[17px] text-[#45454a] sm:text-[13px] sm:leading-[19px]">{action.label}</span>
           </motion.a>
         ))}
+      </div>
       </div>
     </section>
   );
@@ -168,7 +182,10 @@ function QuickActions({ actions }: { actions: QuickAction[] }) {
 
 function MetricGrid({ metrics }: { metrics: MetricCard[] }) {
   return (
-    <section aria-label="Dashboard metrics" className="grid grid-cols-2 gap-3 sm:gap-[18px] xl:grid-cols-4">
+    <section
+      aria-label="Dashboard metrics"
+      className={`grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-[18px] ${metrics.length >= 3 ? "xl:grid-cols-3" : ""}`}
+    >
       {metrics.map((metric) => (
         <motion.article className={`${panelClass} min-h-[112px] px-4 py-5 sm:min-h-[120px]`} initial="rest" key={metric.label} whileHover="hover" variants={cardHoverMotion}>
           <p className="text-[12px] font-bold uppercase leading-[18px] text-[#9b9ba0]">{metric.label}</p>
@@ -185,7 +202,7 @@ function MetricGrid({ metrics }: { metrics: MetricCard[] }) {
 
 function RecentTransactions({ transactions }: { transactions: RecentTransaction[] }) {
   return (
-    <section aria-labelledby="recent-transactions-title" className={`${panelClass} min-h-[410px] p-4 sm:p-6`}>
+    <section aria-labelledby="recent-transactions-title" className={`${panelClass} p-4 sm:p-6`}>
       <SectionHeader
         subtitle="Latest activity across all shipments"
         title="Recent Transactions"
@@ -193,7 +210,7 @@ function RecentTransactions({ transactions }: { transactions: RecentTransaction[
         viewAllHref="/transactions"
         viewAllLabel="View all transactions"
       />
-      <div className="mt-6 divide-y divide-[#ededee]">
+      <div className="mt-4 divide-y divide-[#ededee]">
         {transactions.length > 0 ? (
           transactions.map((transaction) => (
             <motion.a
@@ -230,7 +247,7 @@ function RecentTransactionsEmptyState() {
   return (
     <motion.div
       animate={{ opacity: 1, y: 0 }}
-      className="flex min-h-[270px] items-center justify-center px-4 py-8 text-center"
+      className="flex items-center justify-center px-4 py-8 text-center"
       initial={{ opacity: 0, y: 8 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
     >
@@ -378,13 +395,14 @@ function LoanToValueGauge({ data }: { data: LoanToValue }) {
 }
 
 function StatusOverview({ items }: { items: StatusOverviewItem[] }) {
+  const total = items.reduce((sum, item) => sum + item.count, 0);
   return (
     <section aria-labelledby="status-overview-title" className={`${panelClass} px-4 py-6 sm:px-6 sm:py-7`}>
       <h2 id="status-overview-title" className="text-[16px] font-semibold leading-[22px] text-[#343438]">
         Transaction Status Overview
       </h2>
       <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#a3a3a8]">
-        Current distribution across all 100 transactions
+        Current distribution across {total} visible {total === 1 ? "transaction" : "transactions"}
       </p>
       <div className="mt-6 grid grid-cols-2 gap-3 md:gap-5 xl:grid-cols-4">
         {items.map((item) => (
@@ -461,12 +479,12 @@ function MessagesPanel({ messages }: { messages: DashboardMessage[] }) {
 
 function RecentActivityPanel({ items }: { items: ActivityItem[] }) {
   return (
-    <section aria-labelledby="activity-title" className={`${panelClass} min-h-[390px] px-5 py-6 sm:px-7 sm:py-7`}>
+    <section aria-labelledby="activity-title" className={`${panelClass} px-5 py-6 sm:px-7`}>
       <h2 id="activity-title" className="text-[16px] font-semibold leading-[22px] text-[#343438]">
         Recent Activity
       </h2>
       <p className="mt-1 text-[13px] font-medium leading-[20px] text-[#a3a3a8]">Latest updates and events</p>
-      <div className="relative mt-6 grid gap-6 pl-8">
+      <div className="relative mt-5 grid gap-4 pl-8">
         <span className="absolute bottom-0 left-[13px] top-3 w-px bg-[#e6e6e8]" />
         {items.map((item) => (
           <motion.a className="group relative block rounded-[6px] px-2 py-1 outline-none transition-colors duration-100 ease-out hover:bg-[#f7faff] focus:bg-[#f7faff] focus:ring-2 focus:ring-[#15447C]/15" href={item.href} key={`${item.title}-${item.timeAgo}`} transition={hoverTransition} whileHover={{ x: 2 }}>

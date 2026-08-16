@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "@/components/app-shell";
+import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { getErrorMessage } from "@/services/api-errors";
+import { hasCapability } from "@/services/authorization";
 import {
   createInventory,
   issueWarehouseReceipt,
@@ -30,6 +32,10 @@ import {
 } from "./management-ui";
 
 export function InventoryClient() {
+  const canManage = hasCapability(
+    useAuthenticatedUser()?.role,
+    "manage:inventory",
+  );
   const [rows, setRows] = useState<InventoryDto[]>([]),
     [orders, setOrders] = useState<OrderListItemDto[]>([]),
     [warehouses, setWarehouses] = useState<WarehouseDto[]>([]);
@@ -120,11 +126,11 @@ export function InventoryClient() {
       <PageHeading
         title="Inventory"
         description="Track commodity intake, custody, warehouse receipts and evidence."
-        action={
+        action={canManage ? (
           <PrimaryButton onClick={() => setModal("create")}>
             Record intake
           </PrimaryButton>
-        }
+        ) : undefined}
       />
       {notice ? <Notice message={notice} /> : null}
       {error && rows.length ? <Notice error message={error} /> : null}
@@ -142,7 +148,9 @@ export function InventoryClient() {
                   <th className="px-5 py-3">Custody</th>
                   <th className="px-5 py-3">Receipt</th>
                   <th className="px-5 py-3">Photos</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
+                  {canManage ? (
+                    <th className="px-5 py-3 text-right">Actions</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -169,7 +177,7 @@ export function InventoryClient() {
                       {formatValue(row.receipt?.receiptNumber)}
                     </td>
                     <td className="px-5 py-4">{row.photoUrls?.length ?? 0}</td>
-                    <td className="px-5 py-4 text-right">
+                    {canManage ? <td className="px-5 py-4 text-right">
                       <SecondaryButton
                         onClick={() => {
                           setSelected(row);
@@ -178,7 +186,7 @@ export function InventoryClient() {
                       >
                         Manage
                       </SecondaryButton>
-                    </td>
+                    </td> : null}
                   </tr>
                 ))}
               </tbody>
@@ -186,7 +194,7 @@ export function InventoryClient() {
           </div>
         </div>
       )}
-      {modal === "create" ? (
+      {canManage && modal === "create" ? (
         <Modal title="Record inventory intake" onClose={() => setModal(null)}>
           <form onSubmit={create} className="grid gap-4 sm:grid-cols-2">
             <SelectField
@@ -217,7 +225,7 @@ export function InventoryClient() {
           </form>
         </Modal>
       ) : null}
-      {modal === "manage" && selected ? (
+      {canManage && modal === "manage" && selected ? (
         <Modal
           title={`Manage lot ${selected.lotId || ""}`}
           onClose={() => setModal(null)}

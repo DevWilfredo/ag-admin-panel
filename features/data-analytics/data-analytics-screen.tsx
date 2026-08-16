@@ -93,14 +93,35 @@ function DataAnalyticsReady({
     <>
       <AnalyticsTabs tabs={data.tabs} />
       <div className="grid gap-[22px] px-4 py-5 sm:px-6 lg:px-5">
+        {data.summary?.length ? (
+          <section aria-label="Operations summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {data.summary.map((metric) => (
+              <article className={`${cardClass} p-5`} key={metric.label}>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#898990]">{metric.label}</p>
+                <p className="mt-2 text-[28px] font-bold text-[#173f70]">{metric.value.toLocaleString()}</p>
+              </article>
+            ))}
+          </section>
+        ) : null}
         <section className="grid gap-[22px] xl:grid-cols-2">
           <ShipmentStatusDistribution chart={data.shipmentStatus} />
           <CycleDurationTrend chart={data.cycleDuration} />
         </section>
         <ExecutionEfficiencyMetrics chart={data.executionEfficiency} />
+        {data.operationTimelines?.length ? <OperationsTimelines timelines={data.operationTimelines} /> : null}
       </div>
     </>
   );
+}
+
+function OperationsTimelines({ timelines }: { timelines: NonNullable<DataAnalyticsData["operationTimelines"]> }) {
+  return <section className={`${cardClass} p-5`} aria-labelledby="operations-timeline-title">
+    <ChartTitle id="operations-timeline-title" title="Order Execution Timelines" subtitle="Lifecycle stages reported by the operations timeline endpoint" />
+    <div className="mt-4 grid gap-3">{timelines.map((timeline) => <article className="rounded-[7px] bg-[#f7f9fb] p-4" key={timeline.orderNumber}>
+      <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-[12px] text-[#24364b]">{timeline.orderNumber}</strong><span className="rounded-full bg-[#e8f0fa] px-2.5 py-1 text-[10px] font-semibold text-[#245895]">{timeline.currentStatus.replaceAll("_", " ")}</span></div>
+      <ol className="mt-3 grid gap-2">{timeline.stages.map((stage) => <li className="flex flex-wrap justify-between gap-2 border-l-2 border-[#3971ad] pl-3 text-[10px] text-[#686b72]" key={`${timeline.orderNumber}-${stage.stage}`}><span className="font-semibold text-[#33363d]">{stage.stage.replaceAll("_", " ")}</span><span>{new Date(stage.startedAt).toLocaleString()} · {stage.durationHours == null ? "In progress" : `${stage.durationHours.toFixed(1)} h`}</span></li>)}</ol>
+    </article>)}</div>
+  </section>;
 }
 
 function AnalyticsTabs({ tabs }: { tabs: AnalyticsTab[] }) {
@@ -162,7 +183,7 @@ function MarketAnalyticsView({ market }: { market: MarketAnalyticsData }) {
     <div className="grid gap-[18px] px-4 py-5 sm:px-6 lg:px-5">
       <section className="grid gap-[18px] xl:grid-cols-2">
         <CommodityExposureChartView chart={market.commodityExposure} />
-        <PriceEvolutionChartView chart={market.priceEvolution} />
+        {market.priceEvolution ? <PriceEvolutionChartView chart={market.priceEvolution} /> : null}
       </section>
       <GeographicFlowOverview flow={market.geographicFlow} />
     </div>

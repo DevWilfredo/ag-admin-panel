@@ -53,29 +53,60 @@ export type TransactionDetail = {
   alerts: string[];
   keyInfo: KeyInfoItem[];
   etaLabel: string;
-  map: MapPreview;
   backendStatusLabel?: string;
   backendUnsupported?: string[];
   documentChecklist?: TransactionDocumentChecklist;
   paymentSummary?: TransactionPaymentSummary;
   auditTimeline?: TransactionAuditItem[];
+  vesselDetails?: TransactionVessel;
+  warehouseDetails?: TransactionWarehouse;
+};
+
+export type TransactionVessel = {
+  vesselName: string;
+  shippingLine?: string;
+  voyageNumber?: string;
+  billOfLading?: string;
+  scac?: string;
+  eta?: string;
+  latitude?: number;
+  longitude?: number;
+  speed?: number;
+  portOfCall?: string;
+  status?: string;
+  history?: Array<{
+    latitude: number;
+    longitude: number;
+    label?: string;
+    timestamp?: string;
+  }>;
+};
+
+export type TransactionWarehouse = {
+  name: string;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  custodyStatus?: string;
+  receiptNumber?: string;
 };
 
 export type TrackerStep = {
   step: number;
   label: string;
   state: "complete" | "current" | "upcoming";
+  locationPreview?: {
+    kind: "vessel" | "warehouse";
+    title: string;
+    subtitle?: string;
+    latitude: number;
+    longitude: number;
+  };
 };
 
 export type KeyInfoItem = {
   label: string;
   value: string;
-};
-
-export type MapPreview = {
-  labels: string[];
-  primaryPinLabel: string;
-  secondaryPinLabel: string;
 };
 
 export type TransactionDocumentChecklist = {

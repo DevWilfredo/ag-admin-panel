@@ -10,7 +10,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const previewState = typeof params?.state === "string" ? params.state : undefined;
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute capability="view:dashboard">
       <DashboardClient previewState={previewState} />
     </ProtectedRoute>
   );

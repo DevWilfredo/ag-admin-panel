@@ -5,12 +5,25 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { restoreSession } from "@/services/auth-service";
+import type { CurrentUser } from "@/services/session-service";
+import {
+  hasCapability,
+  type Capability,
+} from "@/services/authorization";
+import { AuthenticatedUserProvider } from "./auth-context";
 
-type AuthStatus = "checking" | "authenticated";
+type AuthStatus = "checking" | "authenticated" | "forbidden";
 
-export function ProtectedRoute({ children }: { children: ReactNode }) {
+export function ProtectedRoute({
+  capability,
+  children,
+}: {
+  capability?: Capability;
+  children: ReactNode;
+}) {
   const router = useRouter();
   const [status, setStatus] = useState<AuthStatus>("checking");
+  const [authenticatedUser, setAuthenticatedUser] = useState<CurrentUser>();
 
   useEffect(() => {
     let mounted = true;
@@ -27,6 +40,13 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (capability && !hasCapability(user.role, capability)) {
+        setStatus("forbidden");
+        router.replace("/dashboard");
+        return;
+      }
+
+      setAuthenticatedUser(user);
       setStatus("authenticated");
     }
 
@@ -35,13 +55,17 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [router]);
+  }, [capability, router]);
 
-  if (status === "checking") {
+  if (status !== "authenticated" || !authenticatedUser) {
     return <AuthCheckingScreen />;
   }
 
-  return <>{children}</>;
+  return (
+    <AuthenticatedUserProvider user={authenticatedUser}>
+      {children}
+    </AuthenticatedUserProvider>
+  );
 }
 
 function AuthCheckingScreen() {

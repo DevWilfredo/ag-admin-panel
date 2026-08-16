@@ -161,19 +161,6 @@ const defaultSelectedTransaction: TransactionDetail = {
     { label: "VESSEL", value: "MV Atlantic Pioneer" },
   ],
   etaLabel: "ETA May 3",
-  map: {
-    labels: [
-      "Barranquilla",
-      "Cartagena de Indias",
-      "Maracaibo",
-      "Valledupar",
-      "Caracas",
-      "Puerto La Cruz",
-      "Trinidad y Tobago",
-    ],
-    primaryPinLabel: "Current vessel position",
-    secondaryPinLabel: "Destination marker",
-  },
 };
 
 const alertSelectedTransaction: TransactionDetail = {
@@ -209,7 +196,6 @@ const alertSelectedTransaction: TransactionDetail = {
     { label: "VESSEL", value: "MV Santos Star" },
   ],
   etaLabel: "ETA Apr 28",
-  map: defaultSelectedTransaction.map,
 };
 
 const closedSelectedTransaction: TransactionDetail = {

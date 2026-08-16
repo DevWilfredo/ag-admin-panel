@@ -1,1 +1,1 @@
-import { ProtectedRoute } from "@/features/auth/protected-route";import { PaymentsClient } from "@/features/management/payments-client";export default function PaymentsPage(){return <ProtectedRoute><PaymentsClient/></ProtectedRoute>}
+import { ProtectedRoute } from "@/features/auth/protected-route";import { PaymentsClient } from "@/features/management/payments-client";export default function PaymentsPage(){return <ProtectedRoute capability="view:payments"><PaymentsClient/></ProtectedRoute>}

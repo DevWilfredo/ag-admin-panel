@@ -11,6 +11,12 @@ export type DataAnalyticsState =
 export type DataAnalyticsData = {
   header: AppShellHeader;
   tabs: AnalyticsTab[];
+  summary?: { label: string; value: number }[];
+  operationTimelines?: {
+    orderNumber: string;
+    currentStatus: string;
+    stages: { stage: string; startedAt: string; durationHours: number | null }[];
+  }[];
   shipmentStatus: ShipmentStatusChart;
   cycleDuration: LineChartData;
   executionEfficiency: BarChartData;
@@ -90,7 +96,7 @@ export type DualAxisLineChartData = {
 
 export type MarketAnalyticsData = {
   commodityExposure: CommodityExposureChart;
-  priceEvolution: PriceEvolutionChart;
+  priceEvolution?: PriceEvolutionChart;
   geographicFlow: GeographicFlowChart;
 };
 

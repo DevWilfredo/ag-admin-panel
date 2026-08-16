@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "@/components/app-shell";
+import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { getErrorMessage } from "@/services/api-errors";
+import { hasCapability } from "@/services/authorization";
 import {
   deleteDocument,
   documentTypes,
@@ -24,6 +26,10 @@ import {
   managementHeader,
 } from "./management-ui";
 export function DocumentsClient() {
+  const role = useAuthenticatedUser()?.role;
+  const canUpload = hasCapability(role, "upload:documents");
+  const canUpdateStatus = hasCapability(role, "manage:document-status");
+  const canDelete = hasCapability(role, "delete:documents");
   const [orders, setOrders] = useState<OrderListItemDto[]>([]),
     [orderId, setOrderId] = useState(""),
     [rows, setRows] = useState<DocumentDto[]>([]);
@@ -123,11 +129,11 @@ export function DocumentsClient() {
       <PageHeading
         title="Documents"
         description="Review and control trade documentation by order."
-        action={
+        action={canUpload ? (
           <PrimaryButton onClick={() => setModal("upload")} disabled={!orderId}>
             Upload document
           </PrimaryButton>
-        }
+        ) : undefined}
       />
       <div className="rounded-[8px] border border-[#e5e5e8] bg-white p-4">
         <div className="max-w-[520px]">
@@ -180,17 +186,17 @@ export function DocumentsClient() {
                           View
                         </a>
                       ) : null}
-                      <SecondaryButton
+                      {canUpdateStatus ? <SecondaryButton
                         onClick={() => {
                           setSelected(row);
                           setModal("status");
                         }}
                       >
                         Update
-                      </SecondaryButton>
-                      <SecondaryButton danger onClick={() => void remove(row)}>
+                      </SecondaryButton> : null}
+                      {canDelete ? <SecondaryButton danger onClick={() => void remove(row)}>
                         Delete
-                      </SecondaryButton>
+                      </SecondaryButton> : null}
                     </div>
                   </td>
                 </tr>
@@ -199,7 +205,7 @@ export function DocumentsClient() {
           </table>
         </div>
       )}
-      {modal === "upload" ? (
+      {canUpload && modal === "upload" ? (
         <Modal title="Upload trade document" onClose={() => setModal(null)}>
           <form onSubmit={upload} className="grid gap-4 sm:grid-cols-2">
             <SelectField
@@ -229,7 +235,7 @@ export function DocumentsClient() {
           </form>
         </Modal>
       ) : null}
-      {modal === "status" && selected ? (
+      {canUpdateStatus && modal === "status" && selected ? (
         <Modal title="Update document status" onClose={() => setModal(null)}>
           <form onSubmit={status} className="grid gap-4">
             <SelectField
