@@ -35,7 +35,7 @@ Las credenciales de auditoría fueron aceptadas, pero `/auth/me` devuelve el rol
 | `GET /api/auth/me` | Integrado, no validado E2E | Restaura/protege la sesión. Falta schema. |
 | `POST /api/auth/refresh` | Integrado, no validado E2E | Renovación automática ante `401`; se asumen `accessToken` y `refreshToken`. |
 | `POST /api/auth/register` | Parcial | Existe `registerUser`, pero no hay UI. Confirmar si el registro público puede elegir cualquier rol, incluido `ADMIN`. |
-| `GET /api/users` | Parcial | Se usa en selectores de participantes, pero no hay directorio/gestión ni paginación visual. Falta schema. |
+| `GET /api/auth/users` | Integrado y validado | Directorio y selectores de participantes disponibles para Admin. `/api/users` devuelve 404. |
 
 ### Orders (4)
 
@@ -170,7 +170,7 @@ Ocultar botones o validar un contexto en React no es autorización. Un usuario p
 - `GET /api/analytics/operations/timeline/{orderId}` alimenta una cronología por orden dentro de Operations.
 - “Price Evolution” fue retirado de la vista real porque Swagger no publica ninguna fuente para esos datos.
 - Se añadió el módulo visual Users y la creación mediante `POST /api/auth/register`. Una prueba no destructiva con un correo duplicado confirmó el error contractual `400 Email already registered`.
-- **Bloqueo backend confirmado:** `GET /api/users`, aun con JWT ADMIN, devuelve `404 Route not found`. El directorio visual y los selectores de participantes no pueden declararse operativos hasta corregir/documentar esa ruta.
+- **Desfase resuelto:** `GET /api/users` devuelve `404`, pero `GET /api/auth/users` responde correctamente con JWT ADMIN y alimenta el directorio y los selectores.
 - El CRUD completo de Warehouses fue validado con un almacén temporal: crear, actualizar, consultar por ID y eliminar devolvieron `200`; el recurso temporal fue eliminado al terminar.
 - Los GET administrativos de órdenes, auditoría, almacenes, inventario, pagos, documentos, checklist, buques y logs fueron revalidados con respuestas reales.
 - No se avanzó ni eliminó la orden existente. Tampoco se crearon pagos, inventario o documentos sobre ella, porque esos recursos no tienen una eliminación/restauración segura equivalente.

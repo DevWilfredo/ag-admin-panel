@@ -26,7 +26,7 @@ export async function listUsers(params: ListUsersParams = {}) {
   if (params.page) query.set("page", String(params.page));
   if (params.limit) query.set("limit", String(params.limit));
   const response = await apiRequest<UsersResponse>(
-    `/users${query.size ? `?${query}` : ""}`,
+    `/auth/users${query.size ? `?${query}` : ""}`,
     { auth: true },
   );
   if (Array.isArray(response)) return response;

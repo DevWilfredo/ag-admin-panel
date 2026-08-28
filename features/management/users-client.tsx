@@ -46,7 +46,7 @@ export function UsersClient() {
   return <AppShell activeNav="users" header={managementHeader("Users")}>
     <PageHeading title="Users" description="Create accounts and review the role assigned by the backend." action={<PrimaryButton onClick={() => setOpen(true)}>New user</PrimaryButton>} />
     {notice ? <Notice message={notice} /> : null}
-    {error ? <Notice error message={`${error} The documented GET /api/users route currently returns 404, so the directory cannot be displayed.`} /> : null}
+    {error ? <Notice error message={error} /> : null}
     {!users.length ? <EmptyTable loading={loading} label="users" onRetry={load} /> : (
       <div className="overflow-x-auto rounded-[8px] border border-[#e4e4e7] bg-white"><table className="w-full min-w-[700px] text-left">
         <thead className="bg-[#f8f9fb] text-[10px] uppercase tracking-wider text-[#85858d]"><tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Email</th><th className="px-5 py-3">Role</th><th className="px-5 py-3">Phone</th><th className="px-5 py-3">Status</th></tr></thead>
