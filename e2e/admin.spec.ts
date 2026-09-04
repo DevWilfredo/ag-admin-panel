@@ -68,5 +68,10 @@ test("opens ADMIN forms without submitting mutations", async ({ adminPage: page 
   await page.goto("/warehouses");
   await page.getByRole("button", { name: "New warehouse" }).click();
   await expect(page.getByRole("dialog")).toContainText("New warehouse");
+  await expect(page.getByLabel("Address search")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Search address" })).toBeVisible();
+  await expect(page.getByLabel("Latitude")).toBeVisible();
+  await expect(page.getByLabel("Longitude")).toBeVisible();
+  await expect(page.getByText("Click the map to place the warehouse.")).toBeVisible();
   await page.getByRole("button", { name: "Close dialog" }).click();
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import dynamic from "next/dynamic";
 import { AppShell } from "@/components/app-shell";
 import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { getErrorMessage } from "@/services/api-errors";
@@ -14,7 +15,6 @@ import {
 } from "@/services/warehouses-service";
 import {
   EmptyTable,
-  Field,
   Modal,
   Notice,
   PageHeading,
@@ -23,6 +23,29 @@ import {
   formatValue,
   managementHeader,
 } from "./management-ui";
+
+const WarehouseLocationPicker = dynamic(
+  () =>
+    import("./warehouse-location-picker").then(
+      (module) => module.WarehouseLocationPicker,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid h-[310px] place-items-center rounded-[9px] border border-[#dedef2] bg-[#f4f7fa] text-[11px] text-[#7b7e86]">
+        Loading map…
+      </div>
+    ),
+  },
+);
+
+type Coordinates = { latitude?: number; longitude?: number };
+type GeocodingResult = {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+};
 
 export function WarehousesClient() {
   const canManage = hasCapability(
@@ -38,6 +61,13 @@ export function WarehousesClient() {
   const [notice, setNotice] = useState<string>();
   const [expandedId, setExpandedId] = useState<string>();
   const [query, setQuery] = useState("");
+  const [warehouseName, setWarehouseName] = useState("");
+  const [location, setLocation] = useState("");
+  const [addressQuery, setAddressQuery] = useState("");
+  const [coordinates, setCoordinates] = useState<Coordinates>({});
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodeError, setGeocodeError] = useState<string>();
+  const [geocodeResults, setGeocodeResults] = useState<GeocodingResult[]>([]);
   const load = useCallback(async () => {
     setLoading(true);
     setError(undefined);
@@ -56,13 +86,26 @@ export function WarehousesClient() {
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const latitude = optionalNumber(data, "latitude");
+    const longitude = optionalNumber(data, "longitude");
+    if ((latitude === undefined) !== (longitude === undefined)) {
+      setError("Provide both latitude and longitude, or leave both empty.");
+      return;
+    }
+    if (
+      latitude !== undefined &&
+      (latitude < -90 || latitude > 90 || longitude! < -180 || longitude! > 180)
+    ) {
+      setError("Latitude must be between -90 and 90, and longitude between -180 and 180.");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
         name: value(data, "name"),
         location: value(data, "location"),
-        latitude: optionalNumber(data, "latitude"),
-        longitude: optionalNumber(data, "longitude"),
+        latitude,
+        longitude,
       };
       if (modal === "edit" && selected)
         await updateWarehouse(selected.id, payload);
@@ -75,6 +118,63 @@ export function WarehousesClient() {
     } finally {
       setSaving(false);
     }
+  }
+  function openWarehouseModal(mode: "create" | "edit", row?: WarehouseDto) {
+    setSelected(row);
+    setWarehouseName(row?.name || "");
+    setLocation(row?.location || "");
+    setAddressQuery(row?.location || "");
+    setCoordinates({
+      latitude: row?.latitude ?? undefined,
+      longitude: row?.longitude ?? undefined,
+    });
+    setGeocodeError(undefined);
+    setGeocodeResults([]);
+    setError(undefined);
+    setModal(mode);
+  }
+  async function searchAddress() {
+    const search = addressQuery.trim();
+    if (!search) {
+      setGeocodeError("Enter an address, city, or place to search.");
+      return;
+    }
+    setGeocoding(true);
+    setGeocodeError(undefined);
+    setGeocodeResults([]);
+    try {
+      const base =
+        process.env.NEXT_PUBLIC_GEOCODING_BASE_URL ||
+        "https://nominatim.openstreetmap.org";
+      const url = new URL("search", base.endsWith("/") ? base : `${base}/`);
+      url.searchParams.set("q", search);
+      url.searchParams.set("format", "jsonv2");
+      url.searchParams.set("addressdetails", "1");
+      url.searchParams.set("limit", "5");
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error(`Address search failed (${response.status}).`);
+      const results = (await response.json()) as GeocodingResult[];
+      setGeocodeResults(results);
+      if (!results.length)
+        setGeocodeError("No matching places found. Try adding the city and country.");
+    } catch (reason) {
+      setGeocodeError(
+        reason instanceof Error
+          ? reason.message
+          : "The address service is temporarily unavailable.",
+      );
+    } finally {
+      setGeocoding(false);
+    }
+  }
+  function choosePlace(place: GeocodingResult) {
+    setLocation(place.display_name);
+    setAddressQuery(place.display_name);
+    setCoordinates({ latitude: Number(place.lat), longitude: Number(place.lon) });
+    setGeocodeResults([]);
+    setGeocodeError(undefined);
   }
   async function remove(row: WarehouseDto) {
     if (!window.confirm(`Delete ${row.name}? This action cannot be undone.`))
@@ -95,8 +195,7 @@ export function WarehousesClient() {
         action={canManage ? (
           <PrimaryButton
             onClick={() => {
-              setSelected(undefined);
-              setModal("create");
+              openWarehouseModal("create");
             }}
           >
             New warehouse
@@ -156,8 +255,7 @@ export function WarehousesClient() {
                         <div className="flex justify-end gap-2">
                           <SecondaryButton
                             onClick={() => {
-                              setSelected(row);
-                              setModal("edit");
+                              openWarehouseModal("edit", row);
                             }}
                           >
                             Edit
@@ -181,36 +279,31 @@ export function WarehousesClient() {
       {canManage && modal ? (
         <Modal
           title={modal === "edit" ? "Edit warehouse" : "New warehouse"}
-          description="Add the warehouse location and optional map coordinates."
+          description="Find an address, place the point on the map, or enter coordinates manually."
           onClose={() => setModal(null)}
         >
           <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
-            <Field
-              name="name"
-              label="Name"
-              required
-              defaultValue={selected?.name}
-            />
-            <Field
-              name="location"
-              label="Location"
-              required
-              defaultValue={selected?.location}
-            />
-            <Field
-              name="latitude"
-              label="Latitude"
-              type="number"
-              step="any"
-              defaultValue={selected?.latitude ?? undefined}
-            />
-            <Field
-              name="longitude"
-              label="Longitude"
-              type="number"
-              step="any"
-              defaultValue={selected?.longitude ?? undefined}
-            />
+            <ControlledField name="name" label="Name" value={warehouseName} onChange={setWarehouseName} required />
+            <ControlledField name="location" label="Location" value={location} onChange={setLocation} required placeholder="Street, city, state, country" />
+            <div className="sm:col-span-2 grid gap-2 rounded-[9px] border border-[#e5e8ec] bg-[#f8fafc] p-3">
+              <label className="grid gap-1.5 text-[11px] font-semibold text-[#585961]">
+                Find the location by address
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input aria-label="Address search" value={addressQuery} onChange={(event) => setAddressQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void searchAddress(); } }} placeholder="e.g. Puerto Cabello, Carabobo, Venezuela" className="h-10 min-w-0 flex-1 rounded-[7px] border border-[#dedef2] bg-white px-3 text-[12px] font-normal outline-none focus:border-[#3971ad] focus:ring-3 focus:ring-[#15447c]/10" />
+                  <SecondaryButton disabled={geocoding} onClick={() => void searchAddress()}>{geocoding ? "Searching…" : "Search address"}</SecondaryButton>
+                </div>
+              </label>
+              {geocodeError ? <p role="alert" className="text-[11px] text-[#a73640]">{geocodeError}</p> : null}
+              {geocodeResults.length ? <div aria-label="Address results" className="overflow-hidden rounded-[7px] border border-[#dfe3e8] bg-white">
+                {geocodeResults.map((place) => <button key={place.place_id} type="button" onClick={() => choosePlace(place)} className="block w-full border-b border-[#eceef1] px-3 py-2.5 text-left text-[11px] leading-4 text-[#4d535b] last:border-0 hover:bg-[#eef4fa] hover:text-[#15447c]">{place.display_name}</button>)}
+              </div> : null}
+              <p className="text-[10px] leading-4 text-[#7b7e86]">Search is only sent when you press the button. Results © OpenStreetMap contributors.</p>
+            </div>
+            <div className="sm:col-span-2">
+              <WarehouseLocationPicker coordinates={coordinates} onChange={(latitude, longitude) => setCoordinates({ latitude, longitude })} />
+            </div>
+            <ControlledNumberField name="latitude" label="Latitude" value={coordinates.latitude} min={-90} max={90} onChange={(latitude) => setCoordinates((current) => ({ ...current, latitude }))} />
+            <ControlledNumberField name="longitude" label="Longitude" value={coordinates.longitude} min={-180} max={180} onChange={(longitude) => setCoordinates((current) => ({ ...current, longitude }))} />
             <div className="sm:col-span-2 flex justify-end gap-2">
               <PrimaryButton type="submit" disabled={saving}>
                 {saving ? "Saving…" : "Save warehouse"}
@@ -228,4 +321,73 @@ function value(data: FormData, key: string) {
 function optionalNumber(data: FormData, key: string) {
   const v = value(data, key);
   return v ? Number(v) : undefined;
+}
+
+function ControlledField({
+  name,
+  label,
+  value,
+  onChange,
+  required,
+  placeholder,
+}: {
+  name: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <label className="grid min-w-0 gap-1.5 text-[11px] font-semibold text-[#585961]">
+      <span>
+        {label}
+        {required ? <span className="ml-1 text-[#b63d48]">*</span> : null}
+      </span>
+      <input
+        name={name}
+        value={value}
+        required={required}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder || `Enter ${label.toLowerCase()}`}
+        className="h-10 min-w-0 rounded-[7px] border border-[#dedef2] bg-white px-3 text-[12px] font-normal outline-none transition placeholder:text-[#aaabb1] focus:border-[#3971ad] focus:ring-3 focus:ring-[#15447c]/10 user-invalid:border-[#ce5963]"
+      />
+    </label>
+  );
+}
+
+function ControlledNumberField({
+  name,
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  name: string;
+  label: string;
+  value?: number;
+  min: number;
+  max: number;
+  onChange: (value?: number) => void;
+}) {
+  return (
+    <label className="grid min-w-0 gap-1.5 text-[11px] font-semibold text-[#585961]">
+      <span>{label} <span className="font-normal text-[#92949a]">(optional)</span></span>
+      <input
+        name={name}
+        aria-label={label}
+        type="number"
+        step="any"
+        min={min}
+        max={max}
+        value={value ?? ""}
+        onChange={(event) =>
+          onChange(event.target.value === "" ? undefined : event.target.valueAsNumber)
+        }
+        placeholder={`Enter ${label.toLowerCase()}`}
+        className="h-10 min-w-0 appearance-none rounded-[7px] border border-[#dedef2] bg-white px-3 text-[12px] font-normal outline-none transition placeholder:text-[#aaabb1] focus:border-[#3971ad] focus:ring-3 focus:ring-[#15447c]/10 user-invalid:border-[#ce5963] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+    </label>
+  );
 }

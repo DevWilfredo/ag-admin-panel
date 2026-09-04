@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               "base-uri 'self'",
-              "connect-src 'self' https://api.agrotrust.com.ve https://res.cloudinary.com",
+              "connect-src 'self' https://api.agrotrust.com.ve https://res.cloudinary.com https://nominatim.openstreetmap.org",
               "font-src 'self' data:",
               "form-action 'self'",
               "frame-ancestors 'none'",
