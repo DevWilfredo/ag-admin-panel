@@ -2,7 +2,7 @@ import { test, expect } from "./support/buyer-fixture";
 
 test("renders the Buyer dashboard from live, role-filtered data", async ({ buyerPage: page }) => {
   await expect(page.getByRole("heading", { name: "Quick Actions" })).toBeVisible();
-  await expect(page.getByText("Review Documents", { exact: true })).toBeVisible();
+  await expect(page.getByText("Open Documents", { exact: true })).toBeVisible();
   for (const metric of ["Visible Transactions", "Active Contracts", "Visible Volume"]) {
     await expect(page.getByText(metric, { exact: true })).toBeVisible();
   }

@@ -17,8 +17,8 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 export const managementHeader = (title: string) => ({
   title,
-  dateLabel: "AgroTrust administration",
-  searchPlaceholder: "Search records",
+  dateLabel: new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date()),
+  searchPlaceholder: "Search transaction number",
   unreadNotifications: 0,
   avatarLabel: "User profile",
   avatarSrc: "/user-avatar.png",
@@ -41,7 +41,7 @@ export function PageHeading({
           {description}
         </p>
       </div>
-      {action}
+      {action ? <div className="z-10 sm:sticky sm:top-[78px]">{action}</div> : null}
     </div>
   );
 }
@@ -64,7 +64,7 @@ export function PrimaryButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex min-h-10 items-center justify-center rounded-[7px] bg-[#15447c] px-4 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-[#0d3768] disabled:cursor-not-allowed disabled:opacity-55"
+      className="inline-flex h-10 min-w-[112px] items-center justify-center rounded-[7px] bg-[#15447c] px-4 text-[12px] font-semibold text-white shadow-sm transition-colors hover:bg-[#0d3768] disabled:cursor-not-allowed disabled:opacity-55"
     >
       {children}
     </motion.button>
@@ -75,16 +75,19 @@ export function SecondaryButton({
   children,
   onClick,
   danger,
+  disabled,
 }: {
   children: ReactNode;
   onClick?: () => void;
   danger?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-8 items-center rounded-[5px] border px-3 text-[11px] font-semibold transition-colors ${danger ? "border-[#efc5c9] text-[#a73640] hover:bg-[#fff1f2]" : "border-[#dfe3e8] text-[#526170] hover:bg-[#f5f8fb]"}`}
+      disabled={disabled}
+      className={`inline-flex h-10 min-w-[112px] items-center justify-center rounded-[7px] border px-4 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${danger ? "border-[#efc5c9] text-[#a73640] hover:bg-[#fff1f2]" : "border-[#dfe3e8] text-[#526170] hover:bg-[#f5f8fb]"}`}
     >
       {children}
     </button>

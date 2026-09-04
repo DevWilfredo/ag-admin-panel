@@ -34,6 +34,10 @@ export type TransactionListItem = {
   progressPercent: number;
   href: string;
   backendStatusLabel?: string;
+  seller?: string;
+  buyer?: string;
+  lender?: string;
+  destination?: string;
 };
 
 export type TransactionDetail = {
@@ -102,6 +106,7 @@ export type TrackerStep = {
     latitude: number;
     longitude: number;
   };
+  documentHref?: string;
 };
 
 export type KeyInfoItem = {

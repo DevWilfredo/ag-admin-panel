@@ -6,6 +6,7 @@ import {
 } from "@/services/inventory-service";
 import {
   getDocumentChecklist,
+  getDocumentTypeLabel,
   type DocumentChecklistDto,
 } from "@/services/documents-service";
 import {
@@ -161,6 +162,10 @@ export function mapOrderToTransactionListItem(
     progressPercent: getStageProgressPercent(order.status),
     status,
     volume: formatQuantity(order.quantity, order.unit),
+    seller: order.producer?.fullName || order.producer?.email || "Not assigned",
+    buyer: order.buyer?.fullName || order.buyer?.email || "Not assigned",
+    lender: order.lender?.fullName || order.lender?.email || "Not assigned",
+    destination: order.destinationCountry || "Not provided",
   };
 }
 
@@ -169,8 +174,8 @@ function buildTransactionsHeader() {
 
   return {
     title: "Transactions",
-    dateLabel: "12 Ene 2026",
-    searchPlaceholder: "Search TXN ID / COMMODITY / LOT",
+    dateLabel: new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date()),
+    searchPlaceholder: "Search transaction number",
     unreadNotifications: 0,
     avatarLabel: user ? `${user.fullName} profile` : "User profile",
     avatarSrc: "/user-avatar.png",
@@ -318,6 +323,10 @@ function mapOrderToTransactionDetail(
       },
       { label: "DOCUMENTS", value: checklist.uploadedLabel },
       { label: "PAYMENT", value: paymentAmount },
+      { label: "SELLER", value: getParticipantName(order.producer, "Not assigned") },
+      { label: "BUYER", value: getParticipantName(order.buyer, "Not assigned") },
+      { label: "LENDER", value: getParticipantName(order.lender, "Not assigned") },
+      { label: "WAREHOUSE", value: warehouse?.name || "Not assigned" },
     ],
     number: order.orderNumber || order.id,
     paymentSummary: payment,
@@ -330,7 +339,7 @@ function mapOrderToTransactionDetail(
     },
     stageLabel: formatOrderStatus(order.status),
     status,
-    tracker: buildBackendTracker(order.status, vessel, warehouse),
+    tracker: buildBackendTracker(order.status, vessel, warehouse, checklist),
     trackerSummary: `Step ${Math.max(getOrderStageIndex(order.status), 1)} of ${orderStatuses.length}`,
     volume: formatQuantity(order.quantity, order.unit),
     vesselDetails: vessel,
@@ -492,6 +501,7 @@ function buildBackendTracker(
   status: string,
   vessel?: TransactionDetail["vesselDetails"],
   warehouse?: TransactionDetail["warehouseDetails"],
+  checklist?: TransactionDetail["documentChecklist"],
 ): TrackerStep[] {
   const currentStage = Math.max(getOrderStageIndex(status), 1);
 
@@ -500,6 +510,15 @@ function buildBackendTracker(
 
     const warehouseCheckpoint = [0, 2, 3].includes(index);
     const vesselCheckpoint = [5, 6, 7].includes(index);
+    const documentKeywords: Partial<Record<string, string[]>> = {
+      CERTIFICATION: ["Quality Certificate"],
+      COLLATERALIZATION: ["Pledge Bond", "Loan Contract"],
+      BILL_OF_LADING: ["Master Bill Of Lading", "House Bill Of Lading"],
+      SHIPPING_DOCUMENTS: ["Commercial Invoice", "Packing List", "Certificate Of Origin", "Phytosanitary Certificate", "Insurance Certificate"],
+    };
+    const documentHref = checklist?.items.find((item) =>
+      documentKeywords[orderStatus]?.some((keyword) => item.label.toLowerCase().includes(keyword.toLowerCase())),
+    )?.href;
     return {
       label: getShortStageLabel(orderStatus),
       state:
@@ -509,6 +528,7 @@ function buildBackendTracker(
             ? "current"
             : "upcoming",
       step,
+      documentHref,
       locationPreview:
         warehouseCheckpoint && warehouse?.latitude !== undefined && warehouse.longitude !== undefined
           ? { kind: "warehouse" as const, title: warehouse.name, subtitle: warehouse.location, latitude: warehouse.latitude, longitude: warehouse.longitude }
@@ -624,7 +644,7 @@ function formatOrderStatus(status: string) {
 }
 
 function formatDocumentType(type: string) {
-  return formatOrderStatus(type);
+  return getDocumentTypeLabel(type);
 }
 
 function getShortStageLabel(status: string) {

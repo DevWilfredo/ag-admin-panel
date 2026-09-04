@@ -13,7 +13,6 @@ import {
   LogOut,
   Menu,
   ReceiptText,
-  Settings,
   UserCircle,
   Warehouse,
   WalletCards,
@@ -108,18 +107,18 @@ const navItems: NavItem[] = [
     capability: "view:payments",
   },
   {
-    key: "users",
-    label: "Users",
-    href: "/users",
-    icon: "users",
-    capability: "manage:users",
-  },
-  {
     key: "analytics",
     label: "Data Analytics",
     href: "/data-analytics",
     icon: "analytics",
     capability: "view:analytics",
+  },
+  {
+    key: "users",
+    label: "Users",
+    href: "/users",
+    icon: "users",
+    capability: "manage:users",
   },
 ];
 
@@ -243,7 +242,7 @@ export function AppShell({
               className="relative flex min-w-0 items-center justify-end gap-4"
               ref={menuRef}
             >
-              <label className="relative hidden sm:block">
+              <form action="/transactions" className="relative hidden sm:block" method="get">
                 <span className="sr-only">
                   Search transactions, commodities, or lots
                 </span>
@@ -252,9 +251,10 @@ export function AppShell({
                   aria-label="Search transactions, commodities, or lots"
                   className="h-[38px] w-[260px] rounded-[8px] border border-[#dddddf] bg-[#fafafa] py-0 pl-11 pr-4 text-[12px] font-medium leading-[20px] text-[#737378] outline-none placeholder:text-[#b8b8bc] md:w-[300px]"
                   placeholder={header.searchPlaceholder}
-                  readOnly
+                  name="orderNumber"
+                  type="search"
                 />
-              </label>
+              </form>
               <motion.button
                 aria-expanded={openMenu === "notifications"}
                 aria-label={`Notifications, ${unreadCount} unread`}
@@ -301,7 +301,7 @@ export function AppShell({
                 profileSubtitle={profileSubtitle}
               />
             </div>
-            <label className="relative order-3 block w-full sm:hidden">
+            <form action="/transactions" className="relative order-3 block w-full sm:hidden" method="get">
               <span className="sr-only">
                 Search transactions, commodities, or lots
               </span>
@@ -309,10 +309,11 @@ export function AppShell({
               <input
                 aria-label="Search transactions, commodities, or lots"
                 className="h-[38px] w-full rounded-[8px] border border-[#dddddf] bg-[#fafafa] py-0 pl-11 pr-4 text-[12px] font-medium leading-[20px] text-[#737378] outline-none placeholder:text-[#b8b8bc]"
-                placeholder={header.searchPlaceholder}
-                readOnly
-              />
-            </label>
+                  placeholder={header.searchPlaceholder}
+                  name="orderNumber"
+                  type="search"
+                />
+            </form>
           </div>
         </header>
         <motion.main
@@ -443,20 +444,9 @@ function HeaderPopovers({
             </div>
           </div>
           <div className="grid p-2">
-            <button
-              className="flex h-10 items-center gap-3 rounded-[6px] px-3 text-left text-[13px] font-medium leading-[18px] text-[#4a4a50] transition hover:bg-[#f7faff] hover:text-[#15447C]"
-              type="button"
-            >
-              <UserCircle className="h-4 w-4" />
-              Profile
-            </button>
-            <button
-              className="flex h-10 items-center gap-3 rounded-[6px] px-3 text-left text-[13px] font-medium leading-[18px] text-[#4a4a50] transition hover:bg-[#f7faff] hover:text-[#15447C]"
-              type="button"
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </button>
+            <p className="px-3 py-2 text-[11px] leading-4 text-[#8d8d93]">
+              Profile editing and account settings are not available in the current API.
+            </p>
             <button
               className="flex h-10 items-center gap-3 rounded-[6px] px-3 text-left text-[13px] font-medium leading-[18px] text-[#b23a42] transition hover:bg-[#fff0f1]"
               onClick={onLogout}

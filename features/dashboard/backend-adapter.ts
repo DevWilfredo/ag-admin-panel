@@ -19,7 +19,7 @@ export async function loadDashboardBackendState(
       data: {
         ...dashboardMockData,
         header: buildDashboardHeader(user),
-        quickActions: buildQuickActions(user, ordersResponse.orders),
+        quickActions: buildQuickActions(user),
         metrics: buildMetrics(ordersResponse.orders, ordersResponse.pagination.total),
         recentActivity: auditItems,
         recentTransactions: ordersResponse.orders
@@ -70,7 +70,7 @@ export async function loadDashboardBackendState(
   }
 }
 
-function buildQuickActions(user: CurrentUser, orders: OrderListItemDto[]) {
+function buildQuickActions(user: CurrentUser) {
   const reviewDocuments = {
     ...dashboardMockData.quickActions.find(
       (action) => action.id === "review-documents",
@@ -80,15 +80,6 @@ function buildQuickActions(user: CurrentUser, orders: OrderListItemDto[]) {
   };
   if (user.role !== "ADMIN") return [reviewDocuments];
 
-  const exportReport = {
-    ...dashboardMockData.quickActions.find(
-      (action) => action.id === "export-report",
-    )!,
-    accessibilityLabel: "Export visible transactions report as CSV",
-    downloadName: "agrotrust-transactions.csv",
-    href: buildOrdersCsvDataUrl(orders),
-  };
-
   return [
     {
       ...dashboardMockData.quickActions.find(
@@ -96,7 +87,13 @@ function buildQuickActions(user: CurrentUser, orders: OrderListItemDto[]) {
       )!,
       accessibilityLabel: "Create transaction",
     },
-    exportReport,
+    {
+      ...dashboardMockData.quickActions.find(
+        (action) => action.id === "export-report",
+      )!,
+      accessibilityLabel: "Open user management",
+      href: "/users",
+    },
     {
       ...dashboardMockData.quickActions.find(
         (action) => action.id === "open-analytics",
@@ -108,9 +105,9 @@ function buildQuickActions(user: CurrentUser, orders: OrderListItemDto[]) {
   ];
 }
 
-function buildOrdersCsvDataUrl(orders: OrderListItemDto[]) {
+export function buildOrdersCsvDataUrl(orders: OrderListItemDto[]) {
   const rows = [
-    ["Order number", "Commodity", "Quantity", "Unit", "Destination", "Status"],
+    ["Transaction number", "Commodity", "Quantity", "Unit", "Destination", "Status"],
     ...orders.map((order) => [
       order.orderNumber || order.id,
       order.commodityType || "",
@@ -131,6 +128,12 @@ function buildDashboardHeader(user: CurrentUser): DashboardData["header"] {
   return {
     ...dashboardMockData.header,
     avatarLabel: `${user.fullName} profile`,
+    dateLabel: new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date()),
+    searchPlaceholder: "Search transaction number",
     profileName: user.fullName,
     profileSubtitle: `${formatRole(user.role)} - AgroTrust Backoffice`,
     unreadNotifications: 0,
@@ -145,6 +148,10 @@ function buildMetrics(orders: OrderListItemDto[], total: number) {
     const quantity = Number(order.quantity);
     return sum + (Number.isFinite(quantity) ? quantity : 0);
   }, 0);
+  const units = [...new Set(orders.map((order) => order.unit?.trim()).filter(Boolean))];
+  const volumeValue = units.length <= 1
+    ? `${new Intl.NumberFormat("en-US").format(volume)}${units[0] ? ` ${units[0]}` : ""}`
+    : "Mixed units";
 
   return [
     {
@@ -161,9 +168,9 @@ function buildMetrics(orders: OrderListItemDto[], total: number) {
     },
     {
       label: "Visible Volume",
-      value: new Intl.NumberFormat("en-US").format(volume),
+      value: volumeValue,
       delta: "Live",
-      deltaContext: "units depend on each order",
+      deltaContext: units.length <= 1 ? "across loaded transactions" : "cannot be safely aggregated",
     },
   ];
 }
@@ -223,7 +230,8 @@ function mapOrderToRecentTransaction(order: OrderListItemDto): RecentTransaction
 }
 
 async function loadRecentAuditItems(orders: OrderListItemDto[]) {
-  const auditResults = await Promise.allSettled(orders.slice(0, 3).map((order) => getOrderAudit(order.id)));
+  const selectedOrders = orders.slice(0, 10);
+  const auditResults = await Promise.allSettled(selectedOrders.map((order) => getOrderAudit(order.id)));
 
   return auditResults
     .flatMap((result, index) => {
@@ -231,8 +239,10 @@ async function loadRecentAuditItems(orders: OrderListItemDto[]) {
         return [];
       }
 
-      return result.value.slice(0, 2).map((audit) => mapAuditItem(audit, orders[index]));
+      return result.value.map((audit) => ({ audit, order: selectedOrders[index] }));
     })
+    .sort((a, b) => new Date(b.audit.createdAt).getTime() - new Date(a.audit.createdAt).getTime())
+    .map(({ audit, order }) => mapAuditItem(audit, order))
     .slice(0, 4);
 }
 

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "@/components/app-shell";
 import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { getErrorMessage } from "@/services/api-errors";
+import { ApiError } from "@/services/api-errors";
 import { hasCapability } from "@/services/authorization";
 import { listOrders, type OrderListItemDto } from "@/services/orders-service";
 import {
@@ -71,7 +72,7 @@ export function PaymentsClient() {
       setError(undefined);
     } catch (e) {
       setPayment(undefined);
-      setError(getErrorMessage(e));
+      setError(e instanceof ApiError && e.status === 404 ? undefined : getErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -123,11 +124,11 @@ export function PaymentsClient() {
     <AppShell activeNav="payments" header={managementHeader("Payments")}>
       <PageHeading
         title="Payments & Escrow"
-        description="Control settlement stages and lender repayment by trade order."
+        description="Control settlement stages and lender repayment by transaction."
       />
       <div className="rounded-[8px] border border-[#e5e5e8] bg-white p-4">
         <div className="max-w-[520px]">
-          <SelectField label="Trade order" value={orderId} onChange={setOrderId} placeholder="Select an order" options={orders.map((order) => ({ value: order.id, label: `${order.orderNumber} — ${order.commodityType}` }))} />
+          <SelectField label="Transaction" value={orderId} onChange={setOrderId} placeholder="Select a transaction" options={orders.map((order) => ({ value: order.id, label: `${order.orderNumber} — ${order.commodityType}` }))} />
         </div>
       </div>
       {notice ? <Notice message={notice} /> : null}
@@ -175,21 +176,17 @@ export function PaymentsClient() {
               value={formatValue(payment.distributedAt)}
             />
           </div>
-          {canManage ? <div className="flex flex-wrap gap-2 border-t border-[#ececee] p-4">
-            <SecondaryButton onClick={() => setModal("sent")}>
-              Mark sent
-            </SecondaryButton>
-            <SecondaryButton onClick={() => setModal("received")}>
-              Mark received
-            </SecondaryButton>
-            <PrimaryButton onClick={() => setModal("distribute")}>
-              Distribute funds
-            </PrimaryButton>
+          {canManage ? <div className="flex flex-wrap items-center gap-2 border-t border-[#ececee] p-4">
+            {!payment.sentToEscrowAt ? <SecondaryButton onClick={() => setModal("sent")}>Mark sent</SecondaryButton> : null}
+            {payment.sentToEscrowAt && !payment.receivedAt ? <SecondaryButton onClick={() => setModal("received")}>Mark received</SecondaryButton> : null}
+            {payment.receivedAt && payment.status !== "SETTLED" && !payment.distributedAt ? <PrimaryButton onClick={() => setModal("distribute")}>Distribute funds</PrimaryButton> : null}
+            {payment.status === "SETTLED" || payment.distributedAt ? <span className="rounded-full bg-[#e9f7ed] px-3 py-2 text-[12px] font-semibold text-[#087d2f]">Funds distributed</span> : null}
           </div> : null}
         </section>
       )}{" "}
       {canManage && !payment && !loading && orderId ? (
-        <div className="flex">
+        <div className="flex flex-col items-start gap-2 rounded-[8px] border border-[#e4e4e7] bg-white p-5">
+          <p className="text-[12px] text-[#77777d]">No payment record exists for this transaction yet.</p>
           <PrimaryButton onClick={() => setModal("create")}>
             Create payment record
           </PrimaryButton>

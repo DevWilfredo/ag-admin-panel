@@ -15,6 +15,23 @@ export const documentTypes = [
 
 export type DocumentType = (typeof documentTypes)[number];
 
+export const documentTypeLabels: Record<DocumentType, string> = {
+  QUALITY_CERTIFICATE: "Quality Certificate",
+  WAREHOUSE_RECEIPT: "Warehouse Receipt",
+  PLEDGE_BOND: "Pledge Bond",
+  LOAN_CONTRACT: "Loan Contract",
+  MASTER_BILL_OF_LADING: "Master Bill of Lading",
+  HOUSE_BILL_OF_LADING: "House Bill of Lading",
+  COMMERCIAL_INVOICE: "Commercial Invoice",
+  PACKING_LIST: "Packing List",
+  BOOKING_CONFIRMATION: "Booking Confirmation",
+  PAYMENT_CONFIRMATION: "Payment Confirmation",
+};
+
+export function getDocumentTypeLabel(type: string) {
+  return documentTypeLabels[type as DocumentType] || type.toLowerCase().split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+
 export type DocumentStatus = "PENDING" | "UPLOADED" | "ENDORSED" | "RELEASED";
 
 export type DocumentChecklistItemDto = {

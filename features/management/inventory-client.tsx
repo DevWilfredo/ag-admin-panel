@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppShell } from "@/components/app-shell";
 import { useAuthenticatedUser } from "@/features/auth/auth-context";
@@ -45,12 +46,18 @@ export function InventoryClient() {
     [notice, setNotice] = useState<string>();
   const [modal, setModal] = useState<"create" | "manage" | null>(null),
     [selected, setSelected] = useState<InventoryDto>();
+  const [warehouseFilter, setWarehouseFilter] = useState("");
+  const [custodyFilter, setCustodyFilter] = useState("");
+  const [query, setQuery] = useState("");
   const load = useCallback(async () => {
     setLoading(true);
     setError(undefined);
     try {
       const [inventory, orderData, warehouseData] = await Promise.all([
-        listInventory(),
+        listInventory({
+          warehouseId: warehouseFilter || undefined,
+          custodyStatus: custodyFilter ? custodyFilter as "IN_CUSTODY" | "RELEASED" | "TRANSFERRED" : undefined,
+        }),
         listOrders({ limit: 100, page: 1 }),
         listWarehouses(),
       ]);
@@ -62,7 +69,7 @@ export function InventoryClient() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [warehouseFilter, custodyFilter]);
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
@@ -133,6 +140,13 @@ export function InventoryClient() {
         ) : undefined}
       />
       {notice ? <Notice message={notice} /> : null}
+      <div className="grid gap-3 rounded-[8px] border border-[#e4e4e7] bg-white p-4 md:grid-cols-3">
+        <label className="grid gap-1.5 text-[11px] font-semibold text-[#585961]">Search inventory
+          <input className="h-10 rounded-[7px] border border-[#dedef2] px-3 text-[12px] outline-none focus:border-[#3971ad]" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Transaction, lot, or warehouse" />
+        </label>
+        <SelectField label="Warehouse" value={warehouseFilter} onChange={setWarehouseFilter} placeholder="All warehouses" options={warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.name }))} />
+        <SelectField label="Custody status" value={custodyFilter} onChange={setCustodyFilter} placeholder="All statuses" options={["IN_CUSTODY", "RELEASED", "TRANSFERRED"].map((value) => ({ value, label: value.replaceAll("_", " ") }))} />
+      </div>
       {error && rows.length ? <Notice error message={error} /> : null}
       {!rows.length ? (
         <EmptyTable loading={loading} error={error} label="inventory records" onRetry={load} />
@@ -142,8 +156,8 @@ export function InventoryClient() {
             <table className="w-full min-w-[850px] text-left">
               <thead className="bg-[#f8f9fb] text-[10px] uppercase tracking-wider text-[#85858d]">
                 <tr>
-                  <th className="px-5 py-3">Lot</th>
-                  <th className="px-5 py-3">Order</th>
+                  <th className="px-5 py-3">Transaction number</th>
+                  <th className="px-5 py-3">Warehouse</th>
                   <th className="px-5 py-3">Quantity</th>
                   <th className="px-5 py-3">Custody</th>
                   <th className="px-5 py-3">Receipt</th>
@@ -154,16 +168,16 @@ export function InventoryClient() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
+                {rows.filter((row) => !query || [row.order?.orderNumber, row.lotId, row.warehouse?.name].some((value) => value?.toLowerCase().includes(query.toLowerCase()))).map((row) => (
                   <tr
                     key={row.id}
                     className="border-t border-[#ececee] text-[12px] text-[#55555c]"
                   >
                     <td className="px-5 py-4 font-semibold text-[#29292e]">
-                      {formatValue(row.lotId)}
+                      {formatValue(row.order?.orderNumber)}
                     </td>
                     <td className="px-5 py-4">
-                      {formatValue(row.order?.orderNumber)}
+                      {formatValue(row.warehouse?.name)}
                     </td>
                     <td className="px-5 py-4">
                       {formatValue(row.quantity)} {row.unit}
@@ -176,7 +190,7 @@ export function InventoryClient() {
                     <td className="px-5 py-4">
                       {formatValue(row.receipt?.receiptNumber)}
                     </td>
-                    <td className="px-5 py-4">{row.photoUrls?.length ?? 0}</td>
+                    <td className="px-5 py-4"><div className="flex flex-wrap gap-1">{row.photoUrls?.length ? row.photoUrls.map((url, index) => <a className="block overflow-hidden rounded border border-[#dfe3e8]" href={url} target="_blank" rel="noreferrer" key={`${url}-${index}`}><Image unoptimized alt={`Inventory evidence ${index + 1}`} className="h-10 w-10 object-cover" height={40} width={40} src={url} /></a>) : <span>0</span>}</div></td>
                     {canManage ? <td className="px-5 py-4 text-right">
                       <SecondaryButton
                         onClick={() => {

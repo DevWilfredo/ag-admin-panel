@@ -31,7 +31,7 @@ export async function loadAnalyticsBackendState(activeTab: AnalyticsTabKey): Pro
     ).map(([country, quantity], index) => ({ country, percentage: Math.round((quantity / routeTotal) * 100), color: colors[index % colors.length] }));
 
     return { status: "ready", data: {
-      header: { title: "Data Analytics", dateLabel: "Live backend analytics", searchPlaceholder: "Search TXN ID / COMMODITY / LOT", unreadNotifications: 0, avatarLabel: "Admin profile", avatarSrc: "" },
+      header: { title: "Data Analytics", dateLabel: new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date()), searchPlaceholder: "Search transaction number", unreadNotifications: 0, avatarLabel: "Admin profile", avatarSrc: "" },
       tabs: ["Operations", "Flow", "Market"].map((label) => ({ label: label as "Operations" | "Flow" | "Market", active: label.toLowerCase() === activeTab })),
       summary: [
         { label: "Total orders", value: summary.totalOrders }, { label: "Active orders", value: summary.activeOrders },

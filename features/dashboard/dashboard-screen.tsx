@@ -19,8 +19,8 @@ import type {
 
 const defaultHeader = {
   title: "Dashboard",
-  dateLabel: "12 Jan 2026",
-  searchPlaceholder: "Search TXN ID / COMMODITY / LOT",
+  dateLabel: new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date()),
+  searchPlaceholder: "Search transaction number",
   unreadNotifications: 0,
   avatarLabel: "User profile",
   avatarSrc: "/user-avatar.png",
@@ -608,7 +608,17 @@ function QuickActionIcon({ icon }: { icon: QuickAction["icon"] }) {
       return <TrendIcon className="h-5 w-5 text-[#2d5f9f]" />;
     case "document":
       return <DocumentIcon className="h-5 w-5 text-[#2d5f9f]" />;
+    case "users":
+      return <UsersIcon className="h-5 w-5 text-[#2d5f9f]" />;
   }
+}
+
+function UsersIcon({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
+      <path d="M16 20v-1.5a4.5 4.5 0 0 0-4.5-4.5h-3A4.5 4.5 0 0 0 4 18.5V20m6-9a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7-1v6m3-3h-6" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+    </svg>
+  );
 }
 
 function ActivityIcon({ icon }: { icon: ActivityItem["icon"] }) {

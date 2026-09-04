@@ -19,6 +19,7 @@ export default async function TransactionsPage({
     typeof params?.orderId === "string" ? params.orderId : undefined;
   const selectedTransaction =
     typeof params?.transaction === "string" ? params.transaction : undefined;
+  const openCreate = params?.action === "create";
 
   return (
     <ProtectedRoute capability="view:transactions">
@@ -26,6 +27,7 @@ export default async function TransactionsPage({
         previewState={previewState}
         selectedOrderId={selectedOrderId}
         selectedTransaction={selectedTransaction}
+        openCreate={openCreate}
         tab={requestedTab}
         filters={{
           orderNumber: value(params?.orderNumber),

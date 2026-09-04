@@ -5,7 +5,7 @@ test("exposes the complete ADMIN navigation and management entry points", async 
     await expect(page.getByRole("link", { name: label }).first()).toBeVisible();
   }
   await page.goto("/transactions");
-  await expect(page.getByRole("button", { name: "New order" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "New transaction" })).toBeVisible();
   await page.goto("/warehouses");
   await expect(page.getByRole("button", { name: "New warehouse" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit" }).first()).toBeVisible();
@@ -17,7 +17,8 @@ test("exposes the complete ADMIN navigation and management entry points", async 
   await expect(
     page
       .getByRole("button", { name: "Create payment record" })
-      .or(page.getByRole("button", { name: "Mark sent" })),
+      .or(page.getByRole("button", { name: "Mark sent" }))
+      .or(page.getByText("Funds distributed", { exact: true })),
   ).toBeVisible();
   await page.goto("/users");
   await expect(page.getByRole("button", { name: "New user" })).toBeVisible();
@@ -28,21 +29,19 @@ test("exposes every functional ADMIN quick action", async ({ adminPage: page }) 
 
   for (const action of [
     "Create Transaction",
-    "Export Report",
+    "Open Users",
     "Open Analytics",
-    "Review Documents",
+    "Open Documents",
   ]) {
     await expect(page.getByText(action, { exact: true })).toBeVisible();
   }
 
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("link", { name: "Export visible transactions report as CSV" }).click();
-  const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe("agrotrust-transactions.csv");
+  await expect(page.getByRole("link", { name: "Open user management" })).toHaveAttribute("href", "/users");
 });
 
 test("renders all live analytics modules without mock price data", async ({ adminPage: page }) => {
   await page.goto("/data-analytics");
+  await expect(page.getByRole("link", { name: "Export report" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Shipment Status Distribution" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Order Execution Timelines" })).toBeVisible();
   await expect(page.getByLabel("Operations summary")).toContainText("Total orders");
@@ -56,6 +55,11 @@ test("renders all live analytics modules without mock price data", async ({ admi
 });
 
 test("opens ADMIN forms without submitting mutations", async ({ adminPage: page }) => {
+  await page.goto("/dashboard");
+  await page.getByRole("link", { name: "Create transaction" }).click();
+  await expect(page).toHaveURL(/\/transactions\?action=create/);
+  await expect(page.getByRole("dialog")).toContainText("Create transaction");
+  await page.getByRole("button", { name: "Close dialog" }).click();
   await page.goto("/users");
   await page.getByRole("button", { name: "New user" }).click();
   await expect(page.getByRole("dialog")).toContainText("Create user");

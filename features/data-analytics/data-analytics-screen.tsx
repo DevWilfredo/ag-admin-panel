@@ -19,8 +19,8 @@ import type {
 
 const defaultHeader = {
   title: "Data Analytics",
-  dateLabel: "12 Ene 2026",
-  searchPlaceholder: "Search TXN ID / COMMODITY / LOT",
+  dateLabel: new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date()),
+  searchPlaceholder: "Search transaction number",
   unreadNotifications: 0,
   avatarLabel: "User profile",
   avatarSrc: "/user-avatar.png",
@@ -71,10 +71,12 @@ function DataAnalyticsReady({
   activeTab: AnalyticsTabKey;
   data: DataAnalyticsData;
 }) {
+  const exportAction = <div className="flex justify-end px-4 pt-4 sm:px-6 lg:px-5"><a className="inline-flex h-10 min-w-[140px] items-center justify-center rounded-[7px] bg-[#15447c] px-4 text-[12px] font-semibold text-white hover:bg-[#0d3768]" download={`agrotrust-${activeTab}-analytics.csv`} href={buildAnalyticsCsvUrl(activeTab, data)}>Export report</a></div>;
   if (activeTab === "flow") {
     return (
       <>
         <AnalyticsTabs tabs={data.tabs} />
+        {exportAction}
         <FlowAnalyticsView flow={data.flow} />
       </>
     );
@@ -84,6 +86,7 @@ function DataAnalyticsReady({
     return (
       <>
         <AnalyticsTabs tabs={data.tabs} />
+        {exportAction}
         <MarketAnalyticsView market={data.market} />
       </>
     );
@@ -92,6 +95,7 @@ function DataAnalyticsReady({
   return (
     <>
       <AnalyticsTabs tabs={data.tabs} />
+      {exportAction}
       <div className="grid gap-[22px] px-4 py-5 sm:px-6 lg:px-5">
         {data.summary?.length ? (
           <section aria-label="Operations summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -114,12 +118,20 @@ function DataAnalyticsReady({
   );
 }
 
+function buildAnalyticsCsvUrl(activeTab: AnalyticsTabKey, data: DataAnalyticsData) {
+  const rows: Array<Array<string | number>> = [["Analytics section", activeTab], ["Exported at", new Date().toISOString()]];
+  data.summary?.forEach((metric) => rows.push([metric.label, metric.value]));
+  rows.push(["Source", "Live role-authorized analytics API"]);
+  const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\r\n");
+  return `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+}
+
 function OperationsTimelines({ timelines }: { timelines: NonNullable<DataAnalyticsData["operationTimelines"]> }) {
   return <section className={`${cardClass} p-5`} aria-labelledby="operations-timeline-title">
     <ChartTitle id="operations-timeline-title" title="Order Execution Timelines" subtitle="Lifecycle stages reported by the operations timeline endpoint" />
     <div className="mt-4 grid gap-3">{timelines.map((timeline) => <article className="rounded-[7px] bg-[#f7f9fb] p-4" key={timeline.orderNumber}>
       <div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-[12px] text-[#24364b]">{timeline.orderNumber}</strong><span className="rounded-full bg-[#e8f0fa] px-2.5 py-1 text-[10px] font-semibold text-[#245895]">{timeline.currentStatus.replaceAll("_", " ")}</span></div>
-      <ol className="mt-3 grid gap-2">{timeline.stages.map((stage) => <li className="flex flex-wrap justify-between gap-2 border-l-2 border-[#3971ad] pl-3 text-[10px] text-[#686b72]" key={`${timeline.orderNumber}-${stage.stage}`}><span className="font-semibold text-[#33363d]">{stage.stage.replaceAll("_", " ")}</span><span>{new Date(stage.startedAt).toLocaleString()} · {stage.durationHours == null ? "In progress" : `${stage.durationHours.toFixed(1)} h`}</span></li>)}</ol>
+      <ol className="mt-3 grid gap-2">{timeline.stages.map((stage, index) => <li className="flex flex-wrap justify-between gap-2 border-l-2 border-[#3971ad] pl-3 text-[10px] text-[#686b72]" key={`${timeline.orderNumber}-${stage.stage}-${index}`}><span className="font-semibold text-[#33363d]">{stage.stage.replaceAll("_", " ")}</span><span>{new Date(stage.startedAt).toLocaleString()} · {stage.durationHours == null ? "In progress" : `${stage.durationHours.toFixed(1)} h`}</span></li>)}</ol>
     </article>)}</div>
   </section>;
 }

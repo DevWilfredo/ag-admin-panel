@@ -34,8 +34,8 @@ import type {
 
 const defaultHeader = {
   title: "Transactions",
-  dateLabel: "12 Ene 2026",
-  searchPlaceholder: "Search TXN ID / COMMODITY / LOT",
+  dateLabel: new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date()),
+  searchPlaceholder: "Search transaction number",
   unreadNotifications: 0,
   avatarLabel: "User profile",
   avatarSrc: "/user-avatar.png",
@@ -348,6 +348,9 @@ function TransactionListRow({
           <p className="mt-1 truncate text-[11px] font-medium leading-[16px] text-[#8a8a90]">
             {transaction.commodity} - {transaction.volume}
           </p>
+          <p className="mt-0.5 truncate text-[10px] leading-4 text-[#a0a0a6]">
+            {transaction.seller || "Seller not assigned"} → {transaction.destination || "Destination not provided"}
+          </p>
         </div>
         <StatusBadge status={transaction.status} />
       </div>
@@ -504,11 +507,12 @@ function TransactionDetailPanel({ detail }: { detail: TransactionDetail }) {
 
         <MapPreview detail={detail} />
 
-        <motion.button
+        <motion.a
           aria-label={`Export full details for ${detail.number}`}
           className="group flex h-[33px] w-full items-center justify-center gap-2 rounded-[5px] bg-[#0d3b70] text-[12px] font-semibold leading-[18px] text-white transition-colors duration-100 ease-out hover:bg-[#15447C] focus:outline-none focus:ring-2 focus:ring-[#15447C]/30"
           transition={hoverTransition}
-          type="button"
+          download={`${detail.number}-details.csv`}
+          href={buildTransactionDetailsCsvUrl(detail)}
           variants={fadeUpMotion}
           whileHover={{ y: -1 }}
           whileTap={{ scale: 0.99 }}
@@ -521,10 +525,26 @@ function TransactionDetailPanel({ detail }: { detail: TransactionDetail }) {
           >
             <ExternalArrowIcon className="h-3.5 w-3.5" />
           </motion.span>
-        </motion.button>
+        </motion.a>
       </motion.div>
     </motion.article>
   );
+}
+
+function buildTransactionDetailsCsvUrl(detail: TransactionDetail) {
+  const rows = [
+    ["Transaction number", detail.number],
+    ["Commodity", detail.commodity],
+    ["Quantity", detail.volume],
+    ["Origin / Seller", detail.route.origin],
+    ["Destination", detail.route.destination],
+    ["Status", detail.backendStatusLabel || detail.stageLabel],
+    ["Progress", `${detail.progressPercent}%`],
+    ["ETA", detail.etaLabel],
+    ...detail.keyInfo.map((item) => [item.label, item.value]),
+  ];
+  const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\r\n");
+  return `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
 }
 
 function ProcessTracker({ steps }: { steps: TrackerStep[] }) {
@@ -589,7 +609,7 @@ function ProcessTracker({ steps }: { steps: TrackerStep[] }) {
                 />
               ) : null}
               <motion.button
-                aria-label={step.locationPreview ? `Preview location for ${step.label}` : undefined}
+                aria-label={step.locationPreview ? `Preview location for ${step.label}` : step.documentHref ? `Open document for ${step.label}` : undefined}
                 animate={{ opacity: 1, scale: 1 }}
                 className={`relative z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full text-[9px] font-bold leading-none ${
                   step.state === "upcoming"
@@ -601,6 +621,10 @@ function ProcessTracker({ steps }: { steps: TrackerStep[] }) {
                 initial={{ opacity: 0, scale: 0.72 }}
                 aria-expanded={Boolean(step.locationPreview && previewState?.index === index)}
                 onClick={() => {
+                  if (!step.locationPreview && step.documentHref) {
+                    window.open(step.documentHref, "_blank", "noopener,noreferrer");
+                    return;
+                  }
                   if (!step.locationPreview) return;
                   setPreviewState((current) => current?.index === index ? undefined : { location: step.locationPreview!, index });
                 }}
@@ -613,7 +637,7 @@ function ProcessTracker({ steps }: { steps: TrackerStep[] }) {
                   ease: quickEase,
                 }}
                 whileHover={{ scale: isCurrent ? 1.08 : 1.04 }}
-                disabled={!step.locationPreview}
+                disabled={!step.locationPreview && !step.documentHref}
               >
                 {step.step}
               </motion.button>
@@ -751,7 +775,7 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
               </p>
             ) : (
               <p className="mt-1 text-[11px] text-[#85858d]">
-                No vessel has been assigned to this order.
+                No vessel has been assigned to this transaction.
               </p>
             )}
           </div>
@@ -763,7 +787,7 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
                   type="button"
                   className="h-9 rounded-[5px] border border-[#d6e0ea] px-3 text-[11px] font-semibold text-[#15447c]"
                 >
-                  Update position
+                  Set manual position
                 </button>
                 <button
                   onClick={() => void retry()}
@@ -905,11 +929,11 @@ function TransactionsToolbar({
         >
           <input type="hidden" name="tab" value={tab} />
           <label className="grid gap-1.5 text-[11px] font-semibold text-[#585961]">
-            <span>Order number</span>
+            <span>Transaction number</span>
             <input
               name="orderNumber"
               defaultValue={filters.orderNumber}
-              placeholder="Search order number"
+              placeholder="Search transaction number"
               className="h-10 rounded-[7px] border border-[#dedef2] px-3 text-[12px] outline-none focus:border-[#3971ad]"
             />
           </label>
@@ -944,7 +968,7 @@ function TransactionsToolbar({
           </div>
         </form>
         {onCreateOrder ? (
-          <PrimaryButton onClick={onCreateOrder}>New order</PrimaryButton>
+          <PrimaryButton onClick={onCreateOrder}>New transaction</PrimaryButton>
         ) : null}
       </div>
     </section>
@@ -1290,7 +1314,7 @@ function MapPreview({ detail }: { detail: TransactionDetail }) {
           <p className="mt-1 text-[11px] leading-[17px] text-[#7f7f86]">
             {vessel
               ? `${vessel.vesselName} is assigned, but Terminal49 has not returned coordinates yet.`
-              : "No vessel or tracking coordinates are available for this order."}
+              : "No vessel or tracking coordinates are available for this transaction."}
           </p>
         </div>
       </div>

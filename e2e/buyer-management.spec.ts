@@ -37,7 +37,7 @@ test("loads Buyer payment visibility without settlement controls", async ({ buye
   }
   await expect(
     page
-      .getByText(/No payment record for this order/i)
+      .getByText(/No payment record exists for this transaction/i)
       .or(page.getByRole("heading", { name: /We couldn.t load this information/i }))
       .or(page.getByText("SETTLED", { exact: true })),
   ).toBeVisible();

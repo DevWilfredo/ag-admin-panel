@@ -36,6 +36,8 @@ export function WarehousesClient() {
   const [selected, setSelected] = useState<WarehouseDto>();
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string>();
+  const [expandedId, setExpandedId] = useState<string>();
+  const [query, setQuery] = useState("");
   const load = useCallback(async () => {
     setLoading(true);
     setError(undefined);
@@ -102,6 +104,9 @@ export function WarehousesClient() {
         ) : undefined}
       />
       {notice ? <Notice message={notice} /> : null}
+      <label className="grid max-w-[520px] gap-1.5 text-[11px] font-semibold text-[#585961]">Search warehouses
+        <input className="h-10 rounded-[7px] border border-[#dedef2] px-3 text-[12px] outline-none focus:border-[#3971ad]" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name or location" />
+      </label>
       {error && rows.length ? <Notice error message={error} /> : null}
       {!rows.length ? (
         <EmptyTable
@@ -119,7 +124,6 @@ export function WarehousesClient() {
                   <th className="px-5 py-3">Warehouse</th>
                   <th className="px-5 py-3">Location</th>
                   <th className="px-5 py-3">Coordinates</th>
-                  <th className="px-5 py-3">Keeper</th>
                   <th className="px-5 py-3">Inventory</th>
                   {canManage ? (
                     <th className="px-5 py-3 text-right">Actions</th>
@@ -127,7 +131,7 @@ export function WarehousesClient() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
+                {rows.filter((row) => !query || [row.name, row.location].some((value) => value?.toLowerCase().includes(query.toLowerCase()))).map((row) => (
                   <tr
                     key={row.id}
                     className="border-t border-[#ececee] text-[12px] text-[#515159]"
@@ -140,10 +144,12 @@ export function WarehousesClient() {
                       {row.latitude ?? "—"}, {row.longitude ?? "—"}
                     </td>
                     <td className="px-5 py-4">
-                      {formatValue(row.keeper?.fullName)}
-                    </td>
-                    <td className="px-5 py-4">
-                      {row._count?.inventories ?? row.inventories?.length ?? 0}
+                      <button className="font-semibold text-[#15447c] hover:underline" type="button" onClick={() => setExpandedId((id) => id === row.id ? undefined : row.id)}>
+                        {row._count?.inventories ?? row.inventories?.length ?? 0} · {expandedId === row.id ? "Hide" : "View"}
+                      </button>
+                      {expandedId === row.id ? <div className="mt-2 grid gap-1 rounded-md bg-[#f7f9fb] p-2 text-[11px]">
+                        {row.inventories?.length ? row.inventories.map((inventory, index) => <span key={`${row.id}-${index}`}>{inventory.lotId || "Unidentified lot"} · {formatValue(inventory.quantity)} · {inventory.custodyStatus?.replaceAll("_", " ") || "No custody status"}</span>) : <span>Inventory details are not included in this API response.</span>}
+                      </div> : null}
                     </td>
                     {canManage ? (
                       <td className="px-5 py-4">

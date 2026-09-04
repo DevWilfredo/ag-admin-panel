@@ -3,7 +3,7 @@ import { test, expect } from "./support/buyer-fixture";
 test("lists, filters, opens, and clears a Buyer-visible transaction", async ({ buyerPage: page }) => {
   await page.goto("/transactions");
   await expect(page.getByRole("heading", { name: "Transactions" }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "New order" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "New transaction" })).toHaveCount(0);
   const auditedOrderId = process.env.AGROTRUST_AUDIT_ORDER_ID;
   const firstOrder = auditedOrderId
     ? page.locator(`a[href*="orderId=${auditedOrderId}"]`).first()
@@ -11,7 +11,7 @@ test("lists, filters, opens, and clears a Buyer-visible transaction", async ({ b
   await expect(firstOrder).toBeVisible();
   const orderNumber = (await firstOrder.locator("h3").textContent())?.trim();
   expect(orderNumber).toBeTruthy();
-  await page.getByPlaceholder("Search order number").fill(orderNumber!);
+  await page.getByRole("textbox", { name: "Transaction number" }).fill(orderNumber!);
   await page.getByRole("button", { name: "Apply filters" }).click();
   await page.waitForURL(/orderNumber=/);
   await expect(page.getByText(orderNumber!, { exact: true }).first()).toBeVisible();
@@ -25,7 +25,7 @@ test("lists, filters, opens, and clears a Buyer-visible transaction", async ({ b
   }
   await expect(page.getByText("Lifecycle control", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Advance stage" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /assign vessel|update position|retry tracking/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /assign vessel|set manual position|retry tracking/i })).toHaveCount(0);
   await expect(page.getByText(/Live position pending|Live vessel position/i)).toBeVisible();
 });
 

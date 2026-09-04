@@ -32,12 +32,14 @@ export function TransactionsClient({
   selectedTransaction,
   tab,
   filters,
+  openCreate = false,
 }: {
   previewState?: string;
   selectedOrderId?: string;
   selectedTransaction?: string;
   tab: TransactionTabKey;
   filters: OrderFilters;
+  openCreate?: boolean;
 }) {
   const router = useRouter();
   const authenticatedUser = useAuthenticatedUser();
@@ -79,7 +81,11 @@ export function TransactionsClient({
     };
   }, [load, previewState]);
 
-  async function openCreate() {
+  useEffect(() => {
+    if (openCreate && canCreateOrder) void openCreateModal();
+  }, [openCreate, canCreateOrder]);
+
+  async function openCreateModal() {
     setModal(true);
     setFormError(undefined);
     setLoadingUsers(true);
@@ -113,7 +119,7 @@ export function TransactionsClient({
     const data = new FormData(event.currentTarget);
     const get = (key: string) => String(data.get(key) || "").trim();
     if (!get("producerId") || !get("buyerId")) {
-      setFormError("Select a producer and buyer before creating the order.");
+      setFormError("Select a seller and buyer before creating the transaction.");
       return;
     }
     setSaving(true);
@@ -150,11 +156,11 @@ export function TransactionsClient({
         state={screenState}
         filters={filters}
         tab={tab}
-        onCreateOrder={canCreateOrder ? () => void openCreate() : undefined}
+        onCreateOrder={canCreateOrder ? () => void openCreateModal() : undefined}
       />
       {canCreateOrder && modal ? (
         <Modal
-          title="Create trade order"
+          title="Create transaction"
           description="Assign the commercial parties and initial trade information."
           onClose={() => setModal(false)}
         >
@@ -197,9 +203,9 @@ export function TransactionsClient({
               />
               <SelectField
                 name="producerId"
-                label="Producer"
+                label="Seller"
                 required
-                placeholder="Select producer"
+                placeholder="Select seller"
                 options={toOptions(users.PRODUCER)}
               />
               <SelectField
@@ -223,7 +229,7 @@ export function TransactionsClient({
               />
               <div className="flex justify-end sm:col-span-2">
                 <PrimaryButton type="submit" disabled={saving}>
-                  {saving ? "Creating…" : "Create order"}
+                  {saving ? "Creating…" : "Create transaction"}
                 </PrimaryButton>
               </div>
             </form>

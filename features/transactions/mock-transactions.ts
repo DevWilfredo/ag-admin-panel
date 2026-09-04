@@ -54,8 +54,8 @@ function createPreviewState(status: PreviewState): TransactionsDataState {
 
 const transactionsHeader = {
   title: "Transactions",
-  dateLabel: "12 Ene 2026",
-  searchPlaceholder: "Search TXN ID / COMMODITY / LOT",
+  dateLabel: new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date()),
+  searchPlaceholder: "Search transaction number",
   unreadNotifications: 0,
   avatarLabel: "System Admin",
   avatarSrc: "/user-avatar.png",

@@ -32,7 +32,7 @@ export type QuickAction = {
   id: "create-transaction" | "export-report" | "open-analytics" | "review-documents";
   label: string;
   accessibilityLabel: string;
-  icon: "plus-square" | "download" | "trend" | "document";
+  icon: "plus-square" | "download" | "trend" | "document" | "users";
   href: string;
   downloadName?: string;
   disabled?: boolean;

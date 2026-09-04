@@ -55,8 +55,8 @@ function createPreviewState(status: PreviewState): DashboardDataState {
 export const dashboardMockData: DashboardData = {
   header: {
     title: "Dashboard",
-    dateLabel: "12 Jan 2026",
-    searchPlaceholder: "Search TXN ID / COMMODITY / LOT",
+    dateLabel: new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(new Date()),
+    searchPlaceholder: "Search transaction number",
     unreadNotifications: 1,
     avatarLabel: "System Admin",
     avatarSrc: "/user-avatar.png",
@@ -71,10 +71,10 @@ export const dashboardMockData: DashboardData = {
     },
     {
       id: "export-report",
-      label: "Export Report",
+      label: "Open Users",
       accessibilityLabel: "Export report placeholder",
-      icon: "download",
-      href: "/dashboard?panel=reports",
+      icon: "users",
+      href: "/users",
     },
     {
       id: "open-analytics",
@@ -85,10 +85,10 @@ export const dashboardMockData: DashboardData = {
     },
     {
       id: "review-documents",
-      label: "Review Documents",
-      accessibilityLabel: "Review documents placeholder",
+      label: "Open Documents",
+      accessibilityLabel: "Open documents",
       icon: "document",
-      href: "/transactions?panel=documents",
+      href: "/documents",
     },
   ],
   metrics: [
