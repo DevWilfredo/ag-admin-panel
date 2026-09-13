@@ -75,3 +75,25 @@ test("opens ADMIN forms without submitting mutations", async ({ adminPage: page 
   await expect(page.getByText("Click the map to place the warehouse.")).toBeVisible();
   await page.getByRole("button", { name: "Close dialog" }).click();
 });
+
+test("supports ADMIN user management without mutating accounts", async ({ adminPage: page }) => {
+  await page.goto("/users");
+  await expect(page.getByLabel("Search users")).toBeVisible();
+  await expect(page.getByText(/users · Page/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit" }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Edit" }).first().click();
+  await expect(page.getByRole("dialog")).toContainText("Edit user");
+  await expect(page.getByLabel("New password (optional)")).toBeVisible();
+  await page.getByRole("button", { name: "Close dialog" }).click();
+});
+
+test("searches globally and exposes scoped results", async ({ adminPage: page }) => {
+  await page.goto("/dashboard");
+  const search = page.getByLabel("Search across AgroTrust").first();
+  await search.fill("coffee");
+  await expect(page.getByText("Transactions", { exact: true }).last()).toBeVisible();
+  await expect(page.getByText("Inventory", { exact: true }).last()).toBeVisible();
+  await page.goto("/search?q=coffee&type=orders");
+  await expect(page.getByRole("heading", { name: "Search: coffee" })).toBeVisible();
+  await expect(page.getByText(/result.*Page/)).toBeVisible();
+});

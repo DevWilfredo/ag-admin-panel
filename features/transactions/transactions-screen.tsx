@@ -736,6 +736,7 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
           longitude: number(get("longitude")),
           speed: number(get("speed")),
           portOfCall: get("portOfCall") || undefined,
+          eta: get("eta") ? new Date(get("eta")).toISOString() : undefined,
         });
       window.location.reload();
     } catch (next) {
@@ -767,12 +768,11 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
               Vessel tracking
             </h2>
             {vessel ? (
-              <p className="mt-1 text-[11px] text-[#777]">
-                {vessel.vesselName}
-                {vessel.shippingLine ? ` · ${vessel.shippingLine}` : ""}
-                {vessel.portOfCall ? ` · ${vessel.portOfCall}` : ""}
-                {vessel.eta ? ` · ETA ${formatVesselDate(vessel.eta)}` : ""}
-              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[#777]">
+                <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${vessel.status === "TRACKING" ? "bg-[#e8f6ec] text-[#087d2f]" : vessel.status === "TRACKING_FAILED" ? "bg-[#fff0f1] text-[#a73640]" : "bg-[#fff5e3] text-[#986115]"}`}>{formatTrackingStatus(vessel.status)}</span>
+                <span>{vessel.vesselName}{vessel.shippingLine ? ` · ${vessel.shippingLine}` : ""}{vessel.portOfCall ? ` · ${vessel.portOfCall}` : ""}{vessel.eta ? ` · ETA ${formatVesselDate(vessel.eta)}` : ""}</span>
+                {vessel.lastUpdated ? <span>Updated {formatVesselDate(vessel.lastUpdated)}</span> : <span>No tracking update received yet</span>}
+              </div>
             ) : (
               <p className="mt-1 text-[11px] text-[#85858d]">
                 No vessel has been assigned to this transaction.
@@ -782,21 +782,21 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
           {canManage ? <div className="flex flex-wrap gap-2">
             {vessel ? (
               <>
-                <button
+                {vessel.latitude === undefined || vessel.longitude === undefined || vessel.status === "TRACKING_FAILED" ? <button
                   onClick={() => setModal("position")}
                   type="button"
                   className="h-9 rounded-[5px] border border-[#d6e0ea] px-3 text-[11px] font-semibold text-[#15447c]"
                 >
                   Set manual position
-                </button>
-                <button
+                </button> : null}
+                {vessel.status === "TRACKING_FAILED" ? <button
                   onClick={() => void retry()}
                   disabled={pending}
                   type="button"
                   className="h-9 rounded-[5px] bg-[#15447c] px-3 text-[11px] font-semibold text-white disabled:opacity-50"
                 >
                   Retry tracking
-                </button>
+                </button> : null}
               </>
             ) : (
               <PrimaryButton onClick={() => setModal("assign")}>
@@ -848,8 +848,8 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
                 <Field name="vesselName" label="Vessel name" required />
                 <Field name="shippingLine" label="Shipping line" />
                 <Field name="voyageNumber" label="Voyage number" />
-                <Field name="billOfLading" label="Master Bill of Lading" />
-                <Field name="scac" label="SCAC code" placeholder="e.g. MAEU" />
+                <Field name="billOfLading" label="Master Bill of Lading" required />
+                <Field name="scac" label="SCAC code" placeholder="e.g. MAEU" required />
               </>
             ) : (
               <>
@@ -874,6 +874,7 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
                   step="any"
                 />
                 <Field name="portOfCall" label="Port of call" />
+                <Field name="eta" label="ETA" type="datetime-local" />
               </>
             )}
             <div className="flex justify-end sm:col-span-2">
@@ -898,6 +899,10 @@ function SmallMetric({ label, value }: { label: string; value: string }) {
 function number(value: string) {
   const parsed = Number(value);
   return value && Number.isFinite(parsed) ? parsed : undefined;
+}
+function formatTrackingStatus(status?: string) {
+  if (!status) return "Pending";
+  return status.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 function formatVesselDate(value: string) {
   const date = new Date(value);

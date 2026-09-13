@@ -78,11 +78,15 @@ export type TransactionVessel = {
   speed?: number;
   portOfCall?: string;
   status?: string;
+  lastUpdated?: string;
+  portOfLoading?: string;
+  portOfDischarge?: string;
   history?: Array<{
     latitude: number;
     longitude: number;
     label?: string;
     timestamp?: string;
+    eventType?: string;
   }>;
 };
 

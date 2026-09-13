@@ -385,7 +385,8 @@ function mapVessel(
             latitude: item.latitude!,
             longitude: item.longitude!,
             label: item.portOfCall,
-            timestamp: item.timestamp || item.createdAt,
+            timestamp: item.loggedAt || item.timestamp || item.createdAt,
+            eventType: item.eventType,
           }))
       : [];
   return {
@@ -403,6 +404,9 @@ function mapVessel(
       latitude !== undefined && longitude !== undefined && rawStatus === "TRACKING_FAILED"
         ? "MANUAL_POSITION"
         : rawStatus,
+    lastUpdated: data.lastUpdated,
+    portOfLoading: data.portOfLoading || undefined,
+    portOfDischarge: data.portOfDischarge || undefined,
     history,
   };
 }

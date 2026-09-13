@@ -82,6 +82,14 @@ export function TransactionsClient({
   }, [load, previewState]);
 
   useEffect(() => {
+    if (previewState || (!selectedOrderId && !selectedTransaction)) return;
+    const timer = window.setInterval(() => {
+      void load().then(setState);
+    }, 45_000);
+    return () => window.clearInterval(timer);
+  }, [load, previewState, selectedOrderId, selectedTransaction]);
+
+  useEffect(() => {
     if (openCreate && canCreateOrder) void openCreateModal();
   }, [openCreate, canCreateOrder]);
 

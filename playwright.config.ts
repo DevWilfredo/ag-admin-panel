@@ -27,7 +27,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `pnpm exec next dev -H 127.0.0.1 -p ${serverPort}`,
+    command: `node node_modules/next/dist/bin/next dev -H 127.0.0.1 -p ${serverPort}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

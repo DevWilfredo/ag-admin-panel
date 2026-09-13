@@ -22,6 +22,7 @@ import { LogoutButton } from "@/features/auth/logout-button";
 import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { logout, logoutLocal } from "@/services/auth-service";
 import { hasCapability, type Capability } from "@/services/authorization";
+import { GlobalSearch } from "@/components/global-search";
 
 export type AppNavKey =
   | "dashboard"
@@ -242,19 +243,7 @@ export function AppShell({
               className="relative flex min-w-0 items-center justify-end gap-4"
               ref={menuRef}
             >
-              <form action="/transactions" className="relative hidden sm:block" method="get">
-                <span className="sr-only">
-                  Search transactions, commodities, or lots
-                </span>
-                <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#bebec2]" />
-                <input
-                  aria-label="Search transactions, commodities, or lots"
-                  className="h-[38px] w-[260px] rounded-[8px] border border-[#dddddf] bg-[#fafafa] py-0 pl-11 pr-4 text-[12px] font-medium leading-[20px] text-[#737378] outline-none placeholder:text-[#b8b8bc] md:w-[300px]"
-                  placeholder={header.searchPlaceholder}
-                  name="orderNumber"
-                  type="search"
-                />
-              </form>
+              <GlobalSearch className="hidden w-[260px] sm:block md:w-[300px]" />
               <motion.button
                 aria-expanded={openMenu === "notifications"}
                 aria-label={`Notifications, ${unreadCount} unread`}
@@ -301,19 +290,7 @@ export function AppShell({
                 profileSubtitle={profileSubtitle}
               />
             </div>
-            <form action="/transactions" className="relative order-3 block w-full sm:hidden" method="get">
-              <span className="sr-only">
-                Search transactions, commodities, or lots
-              </span>
-              <SearchIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#bebec2]" />
-              <input
-                aria-label="Search transactions, commodities, or lots"
-                className="h-[38px] w-full rounded-[8px] border border-[#dddddf] bg-[#fafafa] py-0 pl-11 pr-4 text-[12px] font-medium leading-[20px] text-[#737378] outline-none placeholder:text-[#b8b8bc]"
-                  placeholder={header.searchPlaceholder}
-                  name="orderNumber"
-                  type="search"
-                />
-            </form>
+            <GlobalSearch className="order-3 block w-full sm:hidden" />
           </div>
         </header>
         <motion.main
@@ -762,24 +739,6 @@ function ArrowRightIcon({ className }: { className?: string }) {
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
-
-function SearchIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <path
-        d="m20 20-4.6-4.6m2.5-5.4a7.9 7.9 0 1 1-15.8 0 7.9 7.9 0 0 1 15.8 0Z"
-        stroke="currentColor"
-        strokeLinecap="round"
         strokeWidth="2"
       />
     </svg>

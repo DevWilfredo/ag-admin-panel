@@ -8,6 +8,8 @@ export type VesselPosition = {
   eta?: string;
   createdAt?: string;
   timestamp?: string;
+  loggedAt?: string;
+  eventType?: string;
 };
 export type VesselDetails = {
   id?: string;
@@ -22,6 +24,8 @@ export type VesselDetails = {
   latitude?: number | null;
   longitude?: number | null;
   currentPortOfCall?: string | null;
+  portOfLoading?: string | null;
+  portOfDischarge?: string | null;
   trackingStatus?: string;
   lastUpdated?: string;
   currentPosition?: VesselPosition;
