@@ -1,6 +1,7 @@
 import { apiRequest } from "./api-client";
 
 export type VesselPosition = {
+  id?: string;
   latitude?: number;
   longitude?: number;
   speed?: number;
@@ -10,6 +11,7 @@ export type VesselPosition = {
   timestamp?: string;
   loggedAt?: string;
   eventType?: string;
+  description?: string | null;
 };
 export type VesselDetails = {
   id?: string;
@@ -91,8 +93,10 @@ export function getVesselLogs(orderId: string) {
 }
 
 function unwrap(response: VesselResponse): VesselDetails {
-  if ("vessel" in response || "data" in response)
-    return response.vessel || response.data || {};
+  if ("vessel" in response || "data" in response){
+    console.log(response.data);
+    return response.vessel || response.data || {}
+  };
   return response as VesselDetails;
 }
 export function retryVesselTracking(orderId: string) {

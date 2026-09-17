@@ -88,6 +88,16 @@ export type TransactionVessel = {
     timestamp?: string;
     eventType?: string;
   }>;
+  trackingEvents?: Array<{
+    id?: string;
+    eventType?: string;
+    description?: string;
+    portOfCall?: string;
+    timestamp?: string;
+    latitude?: number;
+    longitude?: number;
+    speed?: number;
+  }>;
 };
 
 export type TransactionWarehouse = {

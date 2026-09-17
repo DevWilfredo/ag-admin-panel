@@ -121,6 +121,15 @@ export async function loadTransactionsBackendState(
       inventoryResult.status === "ready" && inventoryResult.data.warehouse?.id
         ? await loadResource(() => getWarehouse(inventoryResult.data.warehouse!.id!))
         : ({ status: "missing" } as const);
+    const mappedVessel = mapVessel(vesselResult, vesselLogsResult);
+    if (typeof window !== "undefined") {
+      console.groupCollapsed(`[AgroTrust vessel tracking] ${selectedOrder.orderNumber}`);
+      console.log("Selected order", { id: selectedOrder.id, orderNumber: selectedOrder.orderNumber });
+      console.log("GET /api/vessels/order/:orderId (raw)", vesselResult.status === "ready" ? vesselResult.data : vesselResult);
+      console.log("GET /api/vessels/order/:orderId/logs (raw)", vesselLogsResult.status === "ready" ? vesselLogsResult.data : vesselLogsResult);
+      console.log("Mapped vessel used by the UI", mappedVessel);
+      console.groupEnd();
+    }
 
     return {
       status: "ready",
@@ -374,21 +383,37 @@ function mapVessel(
   const latitude = position?.latitude ?? data.latitude ?? undefined;
   const longitude = position?.longitude ?? data.longitude ?? undefined;
   const rawStatus = data.trackingStatus || data.status;
+  const trackingEvents = logs.status === "ready"
+    ? logs.data.map((item) => ({
+        id: item.id,
+        eventType: item.eventType,
+        description: item.description || undefined,
+        portOfCall: item.portOfCall,
+        timestamp: item.loggedAt || item.timestamp || item.createdAt,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        speed: item.speed,
+      }))
+    : [];
   const history =
-    logs.status === "ready"
-      ? logs.data
+    trackingEvents.length
+      ? trackingEvents
           .filter(
             (item) =>
               item.latitude !== undefined && item.longitude !== undefined,
           )
+          .sort((a, b) => (a.timestamp || "").localeCompare(b.timestamp || ""))
           .map((item) => ({
             latitude: item.latitude!,
             longitude: item.longitude!,
             label: item.portOfCall,
-            timestamp: item.loggedAt || item.timestamp || item.createdAt,
+            timestamp: item.timestamp,
             eventType: item.eventType,
           }))
       : [];
+  const latestPosition = trackingEvents.find(
+    (item) => item.latitude !== undefined && item.longitude !== undefined,
+  );
   return {
     vesselName: data.vesselName || data.name || "Assigned vessel",
     shippingLine: data.shippingLine,
@@ -398,7 +423,7 @@ function mapVessel(
     eta: position?.eta || data.eta,
     latitude,
     longitude,
-    speed: position?.speed,
+    speed: position?.speed ?? latestPosition?.speed,
     portOfCall: position?.portOfCall || data.currentPortOfCall || undefined,
     status:
       latitude !== undefined && longitude !== undefined && rawStatus === "TRACKING_FAILED"
@@ -408,6 +433,7 @@ function mapVessel(
     portOfLoading: data.portOfLoading || undefined,
     portOfDischarge: data.portOfDischarge || undefined,
     history,
+    trackingEvents,
   };
 }
 

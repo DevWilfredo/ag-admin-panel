@@ -819,6 +819,29 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
             <SmallMetric label="Status" value={vessel.status || "Tracking"} />
           </div>
         ) : null}
+        {vessel?.trackingEvents?.length ? (
+          <div className="mt-3 border-t border-[#edf0f3] pt-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-[11px] font-semibold text-[#303034]">Terminal49 tracking history</h3>
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-[#8b8e95]">{vessel.trackingEvents.length} events</span>
+            </div>
+            <div className="mt-2 grid max-h-[260px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+              {vessel.trackingEvents.map((event, index) => (
+                <div className="rounded-[6px] border border-[#e4e8ec] bg-[#f8fafc] px-3 py-2.5" key={event.id || `${event.eventType}-${event.timestamp}-${index}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <strong className="text-[10px] text-[#35404b]">{formatTrackingEvent(event.eventType)}</strong>
+                    {event.timestamp ? <time className="shrink-0 text-[9px] text-[#8b8e95]">{formatVesselDate(event.timestamp)}</time> : null}
+                  </div>
+                  <p className="mt-1 text-[10px] text-[#737780]">
+                    {event.portOfCall || "Port not provided"}
+                    {event.speed !== undefined && event.speed !== null ? ` · ${event.speed} kn` : ""}
+                  </p>
+                  {event.latitude !== undefined && event.longitude !== undefined ? <p className="mt-1 font-mono text-[9px] text-[#58708a]">{event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}</p> : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {error ? (
           <div className="mt-3">
             <Notice error message={error} />
@@ -903,6 +926,11 @@ function number(value: string) {
 function formatTrackingStatus(status?: string) {
   if (!status) return "Pending";
   return status.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+function formatTrackingEvent(eventType?: string) {
+  if (!eventType) return "Tracking update";
+  const label = eventType.split(".").at(-1) || eventType;
+  return label.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 function formatVesselDate(value: string) {
   const date = new Date(value);
