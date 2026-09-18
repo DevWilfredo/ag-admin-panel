@@ -107,20 +107,30 @@ export type TransactionWarehouse = {
   longitude?: number;
   custodyStatus?: string;
   receiptNumber?: string;
+  photoUrls?: string[];
+};
+
+export type TrackerPreviewDocument = {
+  label: string;
+  href: string;
+};
+
+export type TrackerPreview = {
+  kind: "warehouse" | "vessel" | "documents" | "inventory" | "unavailable";
+  title: string;
+  subtitle?: string;
+  latitude?: number;
+  longitude?: number;
+  imageUrls?: string[];
+  documents?: TrackerPreviewDocument[];
+  message?: string;
 };
 
 export type TrackerStep = {
   step: number;
   label: string;
   state: "complete" | "current" | "upcoming";
-  locationPreview?: {
-    kind: "vessel" | "warehouse";
-    title: string;
-    subtitle?: string;
-    latitude: number;
-    longitude: number;
-  };
-  documentHref?: string;
+  preview?: TrackerPreview;
 };
 
 export type KeyInfoItem = {

@@ -249,9 +249,9 @@ export function DocumentsClient() {
               name="type"
               label="Document type"
               required
-              options={documentTypes.map((x) => ({
+              options={documentTypes.filter((type) => type !== "PLEDGE_BOND").map((x) => ({
                 value: x,
-                label: getDocumentTypeLabel(x),
+                label: x === "LOAN_CONTRACT" ? "Loan Contract / Collateral package" : getDocumentTypeLabel(x),
               }))}
             />
             <Field name="holderNote" label="Holder note" />

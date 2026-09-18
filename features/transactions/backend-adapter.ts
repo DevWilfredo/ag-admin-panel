@@ -11,10 +11,8 @@ import {
 } from "@/services/documents-service";
 import {
   getOrderAudit,
-  getOrderStageIndex,
   isFinalOrderStatus,
   listOrders,
-  orderStatuses,
   type OrderAuditLogDto,
   type OrderDto,
   type OrderListItemDto,
@@ -335,6 +333,7 @@ function mapOrderToTransactionDetail(
       { label: "SELLER", value: getParticipantName(order.producer, "Not assigned") },
       { label: "BUYER", value: getParticipantName(order.buyer, "Not assigned") },
       { label: "LENDER", value: getParticipantName(order.lender, "Not assigned") },
+      { label: "WAREHOUSE KEEPER", value: getParticipantName(order.keeper, "Not assigned") },
       { label: "WAREHOUSE", value: warehouse?.name || "Not assigned" },
     ],
     number: order.orderNumber || order.id,
@@ -346,10 +345,10 @@ function mapOrderToTransactionDetail(
         order.destinationCountry ||
         getParticipantName(order.buyer, "Destination not provided"),
     },
-    stageLabel: formatOrderStatus(order.status),
+    stageLabel: getVisibleStageLabel(order.status),
     status,
     tracker: buildBackendTracker(order.status, vessel, warehouse, checklist),
-    trackerSummary: `Step ${Math.max(getOrderStageIndex(order.status), 1)} of ${orderStatuses.length}`,
+    trackerSummary: `Step ${getVisibleStageIndex(order.status)} of ${visibleStages.length}`,
     volume: formatQuantity(order.quantity, order.unit),
     vesselDetails: vessel,
     warehouseDetails: warehouse,
@@ -370,6 +369,7 @@ function mapWarehouse(
     longitude: detail?.longitude ?? inventoryWarehouse?.longitude ?? undefined,
     custodyStatus: inventory.data.custodyStatus,
     receiptNumber: inventory.data.receipt?.receiptNumber,
+    photoUrls: inventory.data.photoUrls || [],
   };
 }
 
@@ -533,24 +533,54 @@ function buildBackendTracker(
   warehouse?: TransactionDetail["warehouseDetails"],
   checklist?: TransactionDetail["documentChecklist"],
 ): TrackerStep[] {
-  const currentStage = Math.max(getOrderStageIndex(status), 1);
+  const currentStage = getVisibleStageIndex(status);
 
-  return orderStatuses.map((orderStatus, index) => {
+  return visibleStages.map((definition, index) => {
     const step = index + 1;
+    const documents = checklist?.items
+      .filter((item) => item.href && definition.documentTypes.some((keyword) =>
+        item.label.toLowerCase().includes(keyword.toLowerCase()),
+      ))
+      .map((item) => ({ label: item.label, href: item.href! })) || [];
 
-    const warehouseCheckpoint = [0, 2, 3].includes(index);
-    const vesselCheckpoint = [5, 6, 7].includes(index);
-    const documentKeywords: Partial<Record<string, string[]>> = {
-      CERTIFICATION: ["Quality Certificate"],
-      COLLATERALIZATION: ["Pledge Bond", "Loan Contract"],
-      BILL_OF_LADING: ["Master Bill Of Lading", "House Bill Of Lading"],
-      SHIPPING_DOCUMENTS: ["Commercial Invoice", "Packing List", "Certificate Of Origin", "Phytosanitary Certificate", "Insurance Certificate"],
-    };
-    const documentHref = checklist?.items.find((item) =>
-      documentKeywords[orderStatus]?.some((keyword) => item.label.toLowerCase().includes(keyword.toLowerCase())),
-    )?.href;
+    const hasWarehouseLocation = warehouse?.latitude !== undefined && warehouse.longitude !== undefined;
+    const hasVesselLocation = vessel?.latitude !== undefined && vessel.longitude !== undefined;
+    const preview = definition.preview === "warehouse"
+      ? {
+          kind: "inventory" as const,
+          title: "Inventory & warehouse tracking",
+          subtitle: warehouse?.location || warehouse?.name,
+          latitude: hasWarehouseLocation ? warehouse.latitude : undefined,
+          longitude: hasWarehouseLocation ? warehouse.longitude : undefined,
+          imageUrls: warehouse?.photoUrls || [],
+          documents,
+          message: !hasWarehouseLocation && !warehouse?.photoUrls?.length
+            ? "Warehouse coordinates and inventory evidence have not been provided yet."
+            : undefined,
+        }
+      : definition.preview === "vessel"
+        ? {
+            kind: "vessel" as const,
+            title: vessel?.vesselName || "Vessel tracking",
+            subtitle: vessel?.portOfCall,
+            latitude: hasVesselLocation ? vessel.latitude : undefined,
+            longitude: hasVesselLocation ? vessel.longitude : undefined,
+            message: !hasVesselLocation ? "Terminal49 has not returned a current vessel position yet." : undefined,
+          }
+        : definition.preview === "escrow" && documents.length === 0
+          ? {
+              kind: "unavailable" as const,
+              title: "Escrow Agreement",
+              message: "The frontend is ready, but the backend does not currently expose an ESCROW_AGREEMENT document type.",
+            }
+          : {
+              kind: "documents" as const,
+              title: definition.previewTitle,
+              documents,
+              message: documents.length === 0 ? "No uploaded document is available for this checkpoint yet." : undefined,
+            };
     return {
-      label: getShortStageLabel(orderStatus),
+      label: definition.label,
       state:
         step < currentStage
           ? "complete"
@@ -558,15 +588,29 @@ function buildBackendTracker(
             ? "current"
             : "upcoming",
       step,
-      documentHref,
-      locationPreview:
-        warehouseCheckpoint && warehouse?.latitude !== undefined && warehouse.longitude !== undefined
-          ? { kind: "warehouse" as const, title: warehouse.name, subtitle: warehouse.location, latitude: warehouse.latitude, longitude: warehouse.longitude }
-          : vesselCheckpoint && vessel?.latitude !== undefined && vessel.longitude !== undefined
-            ? { kind: "vessel" as const, title: vessel.vesselName, subtitle: vessel.portOfCall, latitude: vessel.latitude, longitude: vessel.longitude }
-            : undefined,
+      preview,
     };
   });
+}
+
+const visibleStages = [
+  { status: "INVENTORY_DELIVERED", label: "Inventory", preview: "warehouse", previewTitle: "Inventory & warehouse tracking", documentTypes: [] },
+  { status: "CERTIFICATION", label: "Cert.", preview: "documents", previewTitle: "Certificate of Quality", documentTypes: ["Quality Certificate"] },
+  { status: "WAREHOUSE_RECEIPT", label: "Receipt", preview: "documents", previewTitle: "Certificate of Deposit", documentTypes: ["Warehouse Receipt"] },
+  { status: "COLLATERALIZATION", label: "Collateral", preview: "documents", previewTitle: "Loan Contract", documentTypes: ["Loan Contract"] },
+  { status: "CARGO_BOOKING", label: "Booking", preview: "documents", previewTitle: "Booking", documentTypes: ["Booking Confirmation"] },
+  { status: "BILL_OF_LADING", label: "B/L", preview: "documents", previewTitle: "Bill of Lading", documentTypes: ["Master Bill", "House Bill"] },
+  { status: "CARGO_IN_TRANSIT", label: "Transit", preview: "vessel", previewTitle: "Vessel tracking", documentTypes: [] },
+  { status: "SHIPPING_DOCUMENTS", label: "Docs", preview: "documents", previewTitle: "Invoice & Packing List", documentTypes: ["Commercial Invoice", "Packing List"] },
+  { status: "PAYMENT_TO_ESCROW", label: "Escrow", preview: "escrow", previewTitle: "Escrow Agreement", documentTypes: ["Escrow Agreement"] },
+  { status: "PAYMENT_RECEIVED", label: "Arrived", preview: "documents", previewTitle: "Arrival", documentTypes: [] },
+  { status: "FUNDS_DISTRIBUTED", label: "Paid", preview: "documents", previewTitle: "Payment completed", documentTypes: [] },
+] as const;
+
+function getVisibleStageIndex(status: string) {
+  if (status === "DOCUMENT_CONTROL") return 8;
+  const index = visibleStages.findIndex((stage) => stage.status === status);
+  return index >= 0 ? index + 1 : 1;
 }
 
 function buildOrderHref(
@@ -589,13 +633,7 @@ function mapOrderVisualStatus(status: string): TransactionStatus {
 }
 
 function getStageProgressPercent(status: string) {
-  const stageIndex = getOrderStageIndex(status);
-
-  if (stageIndex <= 0) {
-    return 0;
-  }
-
-  return Math.round((stageIndex / orderStatuses.length) * 100);
+  return Math.round((getVisibleStageIndex(status) / visibleStages.length) * 100);
 }
 
 function formatQuantity(quantity?: number | string, unit?: string) {
@@ -677,23 +715,12 @@ function formatDocumentType(type: string) {
   return getDocumentTypeLabel(type);
 }
 
-function getShortStageLabel(status: string) {
-  const labels: Record<string, string> = {
-    BILL_OF_LADING: "B/L",
-    CARGO_BOOKING: "Booking",
-    CARGO_IN_TRANSIT: "Transit",
-    CERTIFICATION: "Cert.",
-    COLLATERALIZATION: "Collateral",
-    DOCUMENT_CONTROL: "Control",
-    FUNDS_DISTRIBUTED: "Distributed",
-    INVENTORY_DELIVERED: "Inventory",
-    PAYMENT_RECEIVED: "Received",
-    PAYMENT_TO_ESCROW: "Escrow",
-    SHIPPING_DOCUMENTS: "Docs",
-    WAREHOUSE_RECEIPT: "Receipt",
-  };
-
-  return labels[status] || formatOrderStatus(status);
+function getVisibleStageLabel(status: string) {
+  if (status === "DOCUMENT_CONTROL") return "Shipping Documents";
+  const stage = visibleStages.find((item) => item.status === status);
+  if (stage?.label === "Arrived") return "Arrived";
+  if (stage?.label === "Paid") return "Paid";
+  return formatOrderStatus(status);
 }
 
 function getParticipantName(

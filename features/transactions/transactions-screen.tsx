@@ -1,12 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { AppShell } from "@/components/app-shell";
 import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { LayoutGroup, motion } from "motion/react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { advanceOrderStage } from "@/services/orders-service";
 import { getErrorMessage } from "@/services/api-errors";
+import { getAccessToken } from "@/services/session-service";
 import { hasCapability } from "@/services/authorization";
 import {
   DateField,
@@ -29,6 +31,7 @@ import type {
   TransactionStatus,
   TransactionTab,
   TransactionTabKey,
+  TrackerPreview,
   TrackerStep,
 } from "./types";
 
@@ -548,22 +551,9 @@ function buildTransactionDetailsCsvUrl(detail: TransactionDetail) {
 }
 
 function ProcessTracker({ steps }: { steps: TrackerStep[] }) {
-  const [previewState, setPreviewState] = useState<{
-    location: NonNullable<TrackerStep["locationPreview"]>;
-    index: number;
-  }>();
-  const preview = previewState?.location;
+  const [previewState, setPreviewState] = useState<{ preview: TrackerPreview; index: number }>();
   return (
-    <div
-      className="relative mt-3"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setPreviewState(undefined);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") setPreviewState(undefined);
-      }}
-      onMouseLeave={() => setPreviewState(undefined)}
-    >
+    <div className="relative mt-3">
       <div className="overflow-x-auto pb-1">
       <div
         className="grid min-w-[820px]"
@@ -609,7 +599,7 @@ function ProcessTracker({ steps }: { steps: TrackerStep[] }) {
                 />
               ) : null}
               <motion.button
-                aria-label={step.locationPreview ? `Preview location for ${step.label}` : step.documentHref ? `Open document for ${step.label}` : undefined}
+                aria-label={`Open checkpoint ${step.step}: ${step.label}`}
                 animate={{ opacity: 1, scale: 1 }}
                 className={`relative z-10 flex h-[22px] w-[22px] items-center justify-center rounded-full text-[9px] font-bold leading-none ${
                   step.state === "upcoming"
@@ -619,17 +609,10 @@ function ProcessTracker({ steps }: { steps: TrackerStep[] }) {
                       : "bg-[#078b3c] text-white"
                 }`}
                 initial={{ opacity: 0, scale: 0.72 }}
-                aria-expanded={Boolean(step.locationPreview && previewState?.index === index)}
+                aria-expanded={previewState?.index === index}
                 onClick={() => {
-                  if (!step.locationPreview && step.documentHref) {
-                    window.open(step.documentHref, "_blank", "noopener,noreferrer");
-                    return;
-                  }
-                  if (!step.locationPreview) return;
-                  setPreviewState((current) => current?.index === index ? undefined : { location: step.locationPreview!, index });
+                  if (step.preview) setPreviewState({ preview: step.preview, index });
                 }}
-                onFocus={() => step.locationPreview && setPreviewState({ location: step.locationPreview, index })}
-                onMouseEnter={() => step.locationPreview && setPreviewState({ location: step.locationPreview, index })}
                 type="button"
                 transition={{
                   delay: 0.04 + index * 0.03,
@@ -637,7 +620,7 @@ function ProcessTracker({ steps }: { steps: TrackerStep[] }) {
                   ease: quickEase,
                 }}
                 whileHover={{ scale: isCurrent ? 1.08 : 1.04 }}
-                disabled={!step.locationPreview && !step.documentHref}
+                disabled={!step.preview}
               >
                 {step.step}
               </motion.button>
@@ -658,30 +641,99 @@ function ProcessTracker({ steps }: { steps: TrackerStep[] }) {
         })}
       </div>
       </div>
-      {preview ? (
-        <motion.div
-          animate={{ opacity: 1, y: 0 }}
-          aria-label={`Location preview for ${preview.title}`}
-          className="absolute top-[58px] z-50 w-[360px] max-w-[calc(100vw-32px)] overflow-hidden rounded-[12px] border border-white/80 bg-white/75 p-2 shadow-[0_18px_45px_rgba(0,28,66,.22)] backdrop-blur-xl"
-          initial={{ opacity: 0, y: -6 }}
-          key={`${preview.kind}-${previewState?.index}`}
-          style={{
-            left: `clamp(180px, ${(((previewState?.index || 0) + 0.5) / steps.length) * 100}%, calc(100% - 180px))`,
-            transform: "translateX(-50%)",
-          }}
-        >
-          <button aria-label="Close location preview" className="absolute left-3 top-3 z-[600] grid size-7 place-items-center rounded-full border border-white/45 bg-[#082b45]/55 text-base leading-none text-white shadow-lg backdrop-blur-xl hover:bg-[#082b45]/75" onClick={() => setPreviewState(undefined)} type="button">×</button>
-          <div className="relative h-[180px] overflow-hidden rounded-[9px] bg-[#dce8ef]">
-            <TransactionMap current={{ latitude: preview.latitude, longitude: preview.longitude, label: preview.subtitle || preview.title }} vesselName={preview.title} />
-            <MapGlassButton href={openStreetMapUrl(preview.latitude, preview.longitude)} label={preview.kind === "vessel" ? "View tracker" : "Warehouse location"} />
-            <div className="pointer-events-none absolute bottom-3 left-3 z-[500] max-w-[75%] rounded-full border border-white/45 bg-[#082b45]/55 px-3 py-1.5 text-[10px] font-semibold text-white shadow-lg backdrop-blur-xl">
-              {preview.title}{preview.subtitle ? ` · ${preview.subtitle}` : ""}
-            </div>
-          </div>
-        </motion.div>
-      ) : null}
+      {previewState ? <CheckpointPreviewModal preview={previewState.preview} onClose={() => setPreviewState(undefined)} /> : null}
     </div>
   );
+}
+
+function CheckpointPreviewModal({ preview, onClose }: { preview: TrackerPreview; onClose: () => void }) {
+  const [selectedDocument, setSelectedDocument] = useState(preview.documents?.[0]);
+  const hasLocation = preview.latitude !== undefined && preview.longitude !== undefined;
+
+  return (
+    <Modal title={preview.title} description={preview.subtitle} onClose={onClose}>
+      <div className="grid gap-4 p-5">
+        {hasLocation ? (
+          <div className="relative h-[300px] overflow-hidden rounded-[10px] border border-[#dce3e9] bg-[#dce8ef]">
+            <TransactionMap current={{ latitude: preview.latitude!, longitude: preview.longitude!, label: preview.subtitle || preview.title }} vesselName={preview.title} />
+            <MapGlassButton href={openStreetMapUrl(preview.latitude!, preview.longitude!)} label={preview.kind === "vessel" ? "View tracker" : "Warehouse location"} />
+          </div>
+        ) : null}
+        {preview.imageUrls?.length ? (
+          <section aria-label="Inventory evidence">
+            <h3 className="text-[12px] font-semibold text-[#303034]">Inventory evidence</h3>
+            <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {preview.imageUrls.map((url, index) => (
+                <a className="relative aspect-[4/3] overflow-hidden rounded-[8px] border border-[#e0e4e8] bg-[#f4f6f8]" href={url} key={`${url}-${index}`} rel="noreferrer" target="_blank">
+                  <Image alt={`Inventory evidence ${index + 1}`} className="object-cover" fill sizes="(max-width: 640px) 50vw, 220px" src={url} unoptimized />
+                </a>
+              ))}
+            </div>
+          </section>
+        ) : null}
+        {preview.documents?.length ? (
+          <section aria-label="Checkpoint documents">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {preview.documents.map((document) => (
+                <button className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${selectedDocument?.href === document.href ? "border-[#15447C] bg-[#15447C] text-white" : "border-[#d8dee5] bg-white text-[#15447C] hover:bg-[#edf3f9]"}`} key={`${document.label}-${document.href}`} onClick={() => setSelectedDocument(document)} type="button">
+                  {document.label}
+                </button>
+              ))}
+            </div>
+            {selectedDocument ? (
+              <div className="overflow-hidden rounded-[8px] border border-[#dce3e9] bg-[#f5f6f7]">
+                <DocumentFrame document={selectedDocument} />
+                <a className="flex items-center justify-center gap-2 border-t border-[#dce3e9] px-4 py-3 text-[12px] font-semibold text-[#15447C] hover:bg-[#edf3f9]" href={selectedDocument.href} rel="noreferrer" target="_blank">
+                  Open {selectedDocument.label} in a new tab <ExternalArrowIcon className="h-3.5 w-3.5" />
+                </a>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+        {preview.message ? <Notice message={preview.message} error={preview.kind === "unavailable"} /> : null}
+      </div>
+    </Modal>
+  );
+}
+
+function DocumentFrame({ document }: { document: NonNullable<TrackerPreview["documents"]>[number] }) {
+  const [source, setSource] = useState<string>();
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    let objectUrl: string | undefined;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        setSource(undefined);
+        setError(undefined);
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/+$/, "") || "";
+        const fileUrl = /^https?:\/\//i.test(document.href) ? document.href : `${apiBase}/${document.href.replace(/^\/+/, "")}`;
+        const headers = new Headers();
+        const token = getAccessToken();
+        if (apiBase && fileUrl.startsWith(apiBase) && token) headers.set("Authorization", `Bearer ${token}`);
+        const response = await fetch(fileUrl, { headers });
+        if (!response.ok) throw new Error(`Document request failed (${response.status}).`);
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.includes("pdf") && !contentType.startsWith("image/")) {
+          throw new Error(`Unsupported document response (${contentType || "unknown content type"}).`);
+        }
+        objectUrl = URL.createObjectURL(await response.blob());
+        if (!cancelled) setSource(objectUrl);
+      } catch (cause) {
+        if (!cancelled) setError(getErrorMessage(cause, "The document could not be loaded."));
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [document.href]);
+
+  if (error) return <div className="p-4"><Notice error message={`${error} You can still try opening the original file below.`} /></div>;
+  if (!source) return <div className="grid h-[220px] place-items-center text-[12px] font-medium text-[#85858b]">Loading document preview…</div>;
+  return <iframe className="h-[480px] w-full bg-white" src={source} title={document.label} />;
 }
 
 function BackendDataPanels({ detail }: { detail: TransactionDetail }) {
@@ -836,6 +888,7 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
                     {event.portOfCall || "Port not provided"}
                     {event.speed !== undefined && event.speed !== null ? ` · ${event.speed} kn` : ""}
                   </p>
+                  {event.description ? <p className="mt-1 text-[9px] leading-4 text-[#596875]">{event.description}</p> : null}
                   {event.latitude !== undefined && event.longitude !== undefined ? <p className="mt-1 font-mono text-[9px] text-[#58708a]">{event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}</p> : null}
                 </div>
               ))}
