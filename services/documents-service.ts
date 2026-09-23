@@ -11,6 +11,7 @@ export const documentTypes = [
   "PACKING_LIST",
   "BOOKING_CONFIRMATION",
   "PAYMENT_CONFIRMATION",
+  "ESCROW_AGREEMENT",
 ] as const;
 
 export type DocumentType = (typeof documentTypes)[number];
@@ -26,6 +27,7 @@ export const documentTypeLabels: Record<DocumentType, string> = {
   PACKING_LIST: "Packing List",
   BOOKING_CONFIRMATION: "Booking Confirmation",
   PAYMENT_CONFIRMATION: "Payment Confirmation",
+  ESCROW_AGREEMENT: "Escrow Agreement",
 };
 
 export function getDocumentTypeLabel(type: string) {

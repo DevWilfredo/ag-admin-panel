@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { getErrorMessage } from "@/services/api-errors";
 import { hasCapability } from "@/services/authorization";
+import { listUsers, type UserDirectoryItem } from "@/services/users-service";
 import {
   createWarehouse,
   deleteWarehouse,
@@ -19,6 +20,7 @@ import {
   Notice,
   PageHeading,
   PrimaryButton,
+  SelectField,
   SecondaryButton,
   formatValue,
   managementHeader,
@@ -53,6 +55,7 @@ export function WarehousesClient() {
     "manage:warehouses",
   );
   const [rows, setRows] = useState<WarehouseDto[]>([]);
+  const [keepers, setKeepers] = useState<UserDirectoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
@@ -72,13 +75,20 @@ export function WarehousesClient() {
     setLoading(true);
     setError(undefined);
     try {
-      setRows(await listWarehouses());
+      const [warehouses, keeperUsers] = await Promise.all([
+        listWarehouses(),
+        canManage
+          ? listUsers({ role: "WAREHOUSE_KEEPER", limit: 100 })
+          : Promise.resolve([]),
+      ]);
+      setRows(warehouses);
+      setKeepers(keeperUsers);
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canManage]);
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
@@ -106,6 +116,7 @@ export function WarehousesClient() {
         location: value(data, "location"),
         latitude,
         longitude,
+        keeperId: value(data, "keeperId") || undefined,
       };
       if (modal === "edit" && selected)
         await updateWarehouse(selected.id, payload);
@@ -217,12 +228,13 @@ export function WarehousesClient() {
       ) : (
         <div className="overflow-hidden rounded-[8px] border border-[#e4e4e7] bg-white">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[780px] text-left">
+            <table className="w-full min-w-[920px] text-left">
               <thead className="bg-[#f8f9fb] text-[10px] uppercase tracking-wider text-[#85858d]">
                 <tr>
                   <th className="px-5 py-3">Warehouse</th>
                   <th className="px-5 py-3">Location</th>
                   <th className="px-5 py-3">Coordinates</th>
+                  <th className="px-5 py-3">Warehouse keeper</th>
                   <th className="px-5 py-3">Inventory</th>
                   {canManage ? (
                     <th className="px-5 py-3 text-right">Actions</th>
@@ -230,7 +242,7 @@ export function WarehousesClient() {
                 </tr>
               </thead>
               <tbody>
-                {rows.filter((row) => !query || [row.name, row.location].some((value) => value?.toLowerCase().includes(query.toLowerCase()))).map((row) => (
+                {rows.filter((row) => !query || [row.name, row.location, row.keeper?.fullName].some((value) => value?.toLowerCase().includes(query.toLowerCase()))).map((row) => (
                   <tr
                     key={row.id}
                     className="border-t border-[#ececee] text-[12px] text-[#515159]"
@@ -241,6 +253,9 @@ export function WarehousesClient() {
                     <td className="px-5 py-4">{formatValue(row.location)}</td>
                     <td className="px-5 py-4">
                       {row.latitude ?? "—"}, {row.longitude ?? "—"}
+                    </td>
+                    <td className="px-5 py-4">
+                      {row.keeper?.fullName || "Not assigned"}
                     </td>
                     <td className="px-5 py-4">
                       <button className="font-semibold text-[#15447c] hover:underline" type="button" onClick={() => setExpandedId((id) => id === row.id ? undefined : row.id)}>
@@ -285,6 +300,16 @@ export function WarehousesClient() {
           <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
             <ControlledField name="name" label="Name" value={warehouseName} onChange={setWarehouseName} required />
             <ControlledField name="location" label="Location" value={location} onChange={setLocation} required placeholder="Street, city, state, country" />
+            <SelectField
+              name="keeperId"
+              label="Warehouse keeper"
+              defaultValue={selected?.keeperId || ""}
+              placeholder="Select keeper (optional)"
+              options={keepers.map((keeper) => ({
+                value: keeper.id,
+                label: `${keeper.fullName || keeper.email} — ${keeper.email}`,
+              }))}
+            />
             <div className="sm:col-span-2 grid gap-2 rounded-[9px] border border-[#e5e8ec] bg-[#f8fafc] p-3">
               <label className="grid gap-1.5 text-[11px] font-semibold text-[#585961]">
                 Find the location by address

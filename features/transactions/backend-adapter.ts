@@ -172,6 +172,7 @@ export function mapOrderToTransactionListItem(
     seller: order.producer?.fullName || order.producer?.email || "Not assigned",
     buyer: order.buyer?.fullName || order.buyer?.email || "Not assigned",
     lender: order.lender?.fullName || order.lender?.email || "Not assigned",
+    keeper: order.keeper?.fullName || order.keeper?.email || "Not assigned",
     destination: order.destinationCountry || "Not provided",
   };
 }
@@ -571,7 +572,7 @@ function buildBackendTracker(
           ? {
               kind: "unavailable" as const,
               title: "Escrow Agreement",
-              message: "The frontend is ready, but the backend does not currently expose an ESCROW_AGREEMENT document type.",
+              message: "No Escrow Agreement has been uploaded for this transaction yet.",
             }
           : {
               kind: "documents" as const,

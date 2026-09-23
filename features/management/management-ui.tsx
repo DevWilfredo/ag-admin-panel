@@ -364,7 +364,7 @@ export function DateField({
   );
 }
 
-type Option = { value: string; label: string };
+type Option = { value: string; label: string; description?: string };
 export function SelectField({
   name,
   label,
@@ -374,6 +374,7 @@ export function SelectField({
   value,
   onChange,
   placeholder = "Select an option",
+  dropdownPlacement = "bottom",
 }: {
   name?: string;
   label: string;
@@ -383,6 +384,7 @@ export function SelectField({
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
+  dropdownPlacement?: "top" | "bottom";
 }) {
   const [internal, setInternal] = useState(defaultValue),
     [open, setOpen] = useState(false),
@@ -406,7 +408,7 @@ export function SelectField({
   return (
     <div
       ref={root}
-      className="relative grid min-w-0 gap-1.5 text-[11px] font-semibold text-[#585961]"
+      className={`relative grid min-w-0 gap-1.5 text-[11px] font-semibold text-[#585961] ${open ? "z-[200]" : "z-0"}`}
     >
       <label id={`${id}-label`}>
         {label}
@@ -442,7 +444,7 @@ export function SelectField({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.99 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 right-0 top-[64px] z-50 max-h-56 overflow-auto rounded-[8px] border border-[#dfe3e8] bg-white p-1 shadow-[0_14px_35px_rgba(12,35,65,.16)]"
+            className={`absolute left-0 right-0 z-[210] max-h-56 overflow-auto rounded-[8px] border border-[#dfe3e8] bg-white p-1 shadow-[0_14px_35px_rgba(12,35,65,.16)] ${dropdownPlacement === "top" ? "bottom-[48px]" : "top-[64px]"}`}
           >
             {options.length ? (
               options.map((option) => (
@@ -452,7 +454,14 @@ export function SelectField({
                   onClick={() => choose(option.value)}
                   className="flex w-full items-center justify-between gap-3 rounded-[5px] px-3 py-2.5 text-left text-[12px] font-medium text-[#4b4d54] transition hover:bg-[#f0f5fb] hover:text-[#15447c]"
                 >
-                  <span className="truncate">{option.label}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate">{option.label}</span>
+                    {option.description ? (
+                      <span className="mt-0.5 block truncate text-[10px] font-normal text-[#858891]">
+                        {option.description}
+                      </span>
+                    ) : null}
+                  </span>
                   {current === option.value ? <Check size={14} /> : null}
                 </button>
               ))

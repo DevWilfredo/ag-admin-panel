@@ -37,6 +37,7 @@ export type TransactionListItem = {
   seller?: string;
   buyer?: string;
   lender?: string;
+  keeper?: string;
   destination?: string;
 };
 

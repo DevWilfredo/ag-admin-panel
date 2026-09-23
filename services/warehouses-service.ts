@@ -6,8 +6,11 @@ export type WarehouseDto = {
   location?: string;
   latitude?: number | null;
   longitude?: number | null;
+  keeperId?: string | null;
   keeper?: {
+    id?: string;
     fullName?: string;
+    email?: string;
   } | null;
   inventories?: Array<{
     lotId?: string;

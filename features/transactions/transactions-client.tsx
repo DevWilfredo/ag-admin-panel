@@ -7,6 +7,7 @@ import { createOrder } from "@/services/orders-service";
 import { getErrorMessage } from "@/services/api-errors";
 import { listUsers, type UserDirectoryItem } from "@/services/users-service";
 import { hasCapability } from "@/services/authorization";
+import { listWarehouses, type WarehouseDto } from "@/services/warehouses-service";
 import {
   Field,
   Modal,
@@ -59,6 +60,7 @@ export function TransactionsClient({
     LENDER: [],
     WAREHOUSE_KEEPER: [],
   });
+  const [warehouses, setWarehouses] = useState<WarehouseDto[]>([]);
   const [formError, setFormError] = useState<string>();
 
   const load = useCallback(() => {
@@ -98,11 +100,12 @@ export function TransactionsClient({
     setFormError(undefined);
     setLoadingUsers(true);
     try {
-      const [producers, buyers, lenders, keepers] = await Promise.all([
+      const [producers, buyers, lenders, keepers, warehouseRows] = await Promise.all([
         listUsers({ role: "PRODUCER", limit: 100 }),
         listUsers({ role: "BUYER", limit: 100 }),
         listUsers({ role: "LENDER", limit: 100 }),
         listUsers({ role: "WAREHOUSE_KEEPER", limit: 100 }),
+        listWarehouses(),
       ]);
       setUsers({
         PRODUCER: producers,
@@ -110,6 +113,7 @@ export function TransactionsClient({
         LENDER: lenders,
         WAREHOUSE_KEEPER: keepers,
       });
+      setWarehouses(warehouseRows);
     } catch (error) {
       setFormError(
         getErrorMessage(
@@ -229,12 +233,18 @@ export function TransactionsClient({
                 placeholder="Select lender (optional)"
                 options={toOptions(users.LENDER)}
               />
-              <SelectField
-                name="keeperId"
-                label="Warehouse keeper"
-                placeholder="Select keeper (optional)"
-                options={toOptions(users.WAREHOUSE_KEEPER)}
-              />
+              <div className="sm:col-span-2">
+                <SelectField
+                  name="keeperId"
+                  label="Warehouse keeper (user)"
+                  placeholder="Select a keeper account (optional)"
+                  options={toKeeperOptions(users.WAREHOUSE_KEEPER, warehouses)}
+                  dropdownPlacement="top"
+                />
+              </div>
+              <p className="text-[10px] leading-4 text-[#85858b] sm:col-span-2">
+                This selects a user with the Warehouse Keeper role. The physical warehouse is assigned later during inventory intake.
+              </p>
               <div className="flex justify-end sm:col-span-2">
                 <PrimaryButton type="submit" disabled={saving}>
                   {saving ? "Creating…" : "Create transaction"}
@@ -253,4 +263,20 @@ function toOptions(users: UserDirectoryItem[]) {
     value: user.id,
     label: `${user.fullName || user.email} — ${user.email}`,
   }));
+}
+
+function toKeeperOptions(keepers: UserDirectoryItem[], warehouses: WarehouseDto[]) {
+  return keepers.map((keeper) => {
+    const assignedWarehouses = warehouses
+      .filter((warehouse) => warehouse.keeperId === keeper.id || warehouse.keeper?.id === keeper.id)
+      .map((warehouse) => warehouse.name);
+
+    return {
+      value: keeper.id,
+      label: keeper.fullName || keeper.email,
+      description: assignedWarehouses.length
+        ? assignedWarehouses.join(", ")
+        : "No warehouse assigned",
+    };
+  });
 }
