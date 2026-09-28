@@ -884,7 +884,7 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
         {vessel?.trackingEvents?.length ? (
           <div className="mt-3 border-t border-[#edf0f3] pt-3">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-[11px] font-semibold text-[#303034]">Terminal49 tracking history</h3>
+              <h3 className="text-[11px] font-semibold text-[#303034]">Vessel tracking history</h3>
               <span className="text-[9px] font-semibold uppercase tracking-wide text-[#8b8e95]">{vessel.trackingEvents.length} events</span>
             </div>
             <div className="mt-2 grid max-h-[260px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
@@ -1046,8 +1046,9 @@ function TransactionsToolbar({
             name="dateFrom"
             label="From"
             defaultValue={filters.dateFrom}
+            calendarPlacement="bottom"
           />
-          <DateField name="dateTo" label="To" defaultValue={filters.dateTo} />
+          <DateField name="dateTo" label="To" defaultValue={filters.dateTo} calendarPlacement="bottom" />
           <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
             <button
               type="submit"

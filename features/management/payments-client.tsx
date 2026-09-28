@@ -8,11 +8,13 @@ import { hasCapability } from "@/services/authorization";
 import { listOrders, type OrderListItemDto } from "@/services/orders-service";
 import {
   createPayment,
+  deletePayment,
   distributePayment,
   getLenderPaymentHistory,
   getPaymentByOrder,
   markPaymentReceived,
   markPaymentSent,
+  updatePayment,
   type PaymentDto,
   type LenderPaymentHistoryDto,
 } from "@/services/payments-service";
@@ -28,7 +30,7 @@ import {
   formatValue,
   managementHeader,
 } from "./management-ui";
-type Action = "create" | "sent" | "received" | "distribute";
+type Action = "create" | "edit" | "sent" | "received" | "distribute";
 export function PaymentsClient() {
   const role = useAuthenticatedUser()?.role;
   const canManage = hasCapability(role, "manage:payments");
@@ -96,6 +98,14 @@ export function PaymentsClient() {
           loanAmount: on(d, "loanAmount"),
           interestAmount: on(d, "interestAmount"),
         });
+      if (modal === "edit")
+        await updatePayment(orderId, {
+          amount: n(d, "amount"),
+          currency: v(d, "currency") || undefined,
+          escrowBank: v(d, "escrowBank") || undefined,
+          loanAmount: on(d, "loanAmount"),
+          interestAmount: on(d, "interestAmount"),
+        });
       if (modal === "sent")
         await markPaymentSent(orderId, {
           escrowBank: v(d, "escrowBank") || undefined,
@@ -115,6 +125,19 @@ export function PaymentsClient() {
       await load();
     } catch (x) {
       setError(getErrorMessage(x));
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function removePayment() {
+    if (!payment || !window.confirm(`Delete the payment record for ${selectedOrder?.orderNumber || "this transaction"}? This cannot be undone.`)) return;
+    setSaving(true); setError(undefined);
+    try {
+      const response = await deletePayment(orderId);
+      setPayment(undefined);
+      setNotice(response.message || "Payment record deleted.");
+    } catch (cause) {
+      setError(getErrorMessage(cause));
     } finally {
       setSaving(false);
     }
@@ -177,10 +200,12 @@ export function PaymentsClient() {
             />
           </div>
           {canManage ? <div className="flex flex-wrap items-center gap-2 border-t border-[#ececee] p-4">
+            {!payment.distributedAt ? <SecondaryButton onClick={() => setModal("edit")}>Edit payment</SecondaryButton> : null}
+            {!payment.distributedAt ? <SecondaryButton danger disabled={saving} onClick={() => void removePayment()}>Delete payment</SecondaryButton> : null}
             {!payment.sentToEscrowAt ? <SecondaryButton onClick={() => setModal("sent")}>Mark sent</SecondaryButton> : null}
             {payment.sentToEscrowAt && !payment.receivedAt ? <SecondaryButton onClick={() => setModal("received")}>Mark received</SecondaryButton> : null}
             {payment.receivedAt && payment.status !== "SETTLED" && !payment.distributedAt ? <PrimaryButton onClick={() => setModal("distribute")}>Distribute funds</PrimaryButton> : null}
-            {payment.status === "SETTLED" || payment.distributedAt ? <span className="rounded-full bg-[#e9f7ed] px-3 py-2 text-[12px] font-semibold text-[#087d2f]">Funds distributed</span> : null}
+            {payment.status === "SETTLED" || payment.distributedAt ? <span className="rounded-full bg-[#e9f7ed] px-3 py-2 text-[12px] font-semibold text-[#087d2f]">Funds distributed · Payment locked</span> : null}
           </div> : null}
         </section>
       )}{" "}
@@ -228,6 +253,15 @@ export function PaymentsClient() {
                 <Field name="interestAmount" label="Interest" type="number" />
               </>
             ) : null}
+            {modal === "edit" && payment ? (
+              <>
+                <Field name="amount" label="Transaction amount" type="number" defaultValue={payment.amount} required />
+                <Field name="currency" label="Currency" defaultValue={payment.currency} />
+                <Field name="escrowBank" label="Escrow bank" defaultValue={payment.escrowBank || ""} />
+                <Field name="loanAmount" label="Loan principal" type="number" defaultValue={payment.loanAmount ?? ""} />
+                <Field name="interestAmount" label="Interest" type="number" defaultValue={payment.interestAmount ?? ""} />
+              </>
+            ) : null}
             {modal === "sent" ? (
               <>
                 <Field name="escrowBank" label="Escrow bank" />
@@ -259,6 +293,7 @@ export function PaymentsClient() {
 }
 const titles: Record<Action, string> = {
   create: "Create payment record",
+  edit: "Edit payment record",
   sent: "Mark funds sent to escrow",
   received: "Confirm funds received",
   distribute: "Distribute funds",

@@ -7,8 +7,10 @@ import { getErrorMessage } from "@/services/api-errors";
 import { hasCapability } from "@/services/authorization";
 import {
   createInventory,
+  deleteInventory,
   issueWarehouseReceipt,
   listInventory,
+  updateInventory,
   updateInventoryCustody,
   uploadInventoryPhotos,
   type InventoryDto,
@@ -33,10 +35,9 @@ import {
 } from "./management-ui";
 
 export function InventoryClient() {
-  const canManage = hasCapability(
-    useAuthenticatedUser()?.role,
-    "manage:inventory",
-  );
+  const role = useAuthenticatedUser()?.role;
+  const canManage = hasCapability(role, "manage:inventory");
+  const canDelete = role === "ADMIN";
   const [rows, setRows] = useState<InventoryDto[]>([]),
     [orders, setOrders] = useState<OrderListItemDto[]>([]),
     [warehouses, setWarehouses] = useState<WarehouseDto[]>([]);
@@ -119,11 +120,32 @@ export function InventoryClient() {
           .filter((x): x is File => x instanceof File && !!x.name);
         await uploadInventoryPhotos(selected.id, photos);
       }
+      if (action === "edit")
+        await updateInventory(selected.id, {
+          commodityType: v(d, "commodityType") || undefined,
+          quantity: Number(v(d, "quantity")),
+          unit: v(d, "unit") || undefined,
+          lotId: v(d, "lotId") || undefined,
+        });
       setModal(null);
       setNotice("Inventory updated.");
       await load();
     } catch (e) {
       setError(getErrorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function removeInventory() {
+    if (!selected || !window.confirm(`Delete inventory lot ${selected.lotId || selected.id}? This cannot be undone.`)) return;
+    setSaving(true);
+    try {
+      const response = await deleteInventory(selected.id);
+      setModal(null);
+      setNotice(response.message || "Inventory record deleted.");
+      await load();
+    } catch (cause) {
+      setError(getErrorMessage(cause));
     } finally {
       setSaving(false);
     }
@@ -246,6 +268,16 @@ export function InventoryClient() {
         >
           <div className="grid gap-5">
             <form onSubmit={manage} className="grid gap-3 sm:grid-cols-2">
+              <input type="hidden" name="action" value="edit" />
+              <Field name="commodityType" label="Commodity type" defaultValue={selected.commodityType} />
+              <Field name="quantity" label="Quantity" type="number" defaultValue={selected.quantity} required />
+              <Field name="unit" label="Unit" defaultValue={selected.unit} />
+              <Field name="lotId" label="Lot / batch ID" defaultValue={selected.lotId} />
+              <div className="flex justify-end sm:col-span-2">
+                <PrimaryButton type="submit" disabled={saving}>Save inventory changes</PrimaryButton>
+              </div>
+            </form>
+            <form onSubmit={manage} className="grid gap-3 sm:grid-cols-2">
               <input type="hidden" name="action" value="custody" />
               <SelectField
                 name="custodyStatus"
@@ -293,6 +325,12 @@ export function InventoryClient() {
                 </PrimaryButton>
               </div>
             </form>
+            {canDelete ? (
+              <div className="flex items-center justify-between gap-4 border-t border-[#ececee] pt-4">
+                <p className="text-[11px] text-[#85858b]">Deletion is blocked by the backend once Bill of Lading has been issued.</p>
+                <SecondaryButton danger disabled={saving} onClick={() => void removeInventory()}>Delete inventory</SecondaryButton>
+              </div>
+            ) : null}
           </div>
         </Modal>
       ) : null}

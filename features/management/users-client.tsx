@@ -8,7 +8,7 @@ import { registerUser } from "@/services/auth-service";
 import { getErrorMessage } from "@/services/api-errors";
 import type { UserRole } from "@/services/session-service";
 import {
-  deactivateUser, getUser, listUsersPage, reactivateUser, updateUser,
+  deactivateUser, deleteUser, getUser, listUsersPage, reactivateUser, updateUser,
   type UserDirectoryItem,
 } from "@/services/users-service";
 import {
@@ -98,6 +98,17 @@ export function UsersClient() {
     finally { setSaving(false); }
   }
 
+  async function remove(user: UserDirectoryItem) {
+    if (!window.confirm(`Permanently delete ${user.fullName || user.email}? This also deletes every transaction and linked record owned by this user. This cannot be undone.`)) return;
+    setSaving(true); setError(undefined);
+    try {
+      const response = await deleteUser(user.id);
+      setNotice(response.message || `User deleted. ${response.deletedOrders || 0} linked transactions were removed.`);
+      await load();
+    } catch (cause) { setError(getErrorMessage(cause)); }
+    finally { setSaving(false); }
+  }
+
   return <AppShell activeNav="users" header={managementHeader("Users")}>
     <PageHeading title="Users" description="Create, edit, deactivate and reactivate platform accounts." action={<PrimaryButton onClick={() => { setSelected(undefined); setModal("create"); }}>New user</PrimaryButton>} />
     <div className="grid max-w-[760px] gap-3 sm:grid-cols-[1fr_220px]">
@@ -106,19 +117,19 @@ export function UsersClient() {
     </div>
     {notice ? <Notice message={notice} /> : null}
     {error ? <Notice error message={error} /> : null}
-    {!users.length ? <EmptyTable loading={loading} error={error} label="users" prompt={query ? "No users match this search" : undefined} onRetry={() => void load()} /> : <UserTable users={users} currentUserId={currentUser?.id} saving={saving} onEdit={edit} onToggle={toggle} />}
+    {!users.length ? <EmptyTable loading={loading} error={error} label="users" prompt={query ? "No users match this search" : undefined} onRetry={() => void load()} /> : <UserTable users={users} currentUserId={currentUser?.id} saving={saving} onDelete={remove} onEdit={edit} onToggle={toggle} />}
     <div className="flex items-center justify-between text-[11px] text-[#777b83]"><span>{total} users · Page {page} of {pages}</span><div className="flex gap-2"><SecondaryButton disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</SecondaryButton><SecondaryButton disabled={page >= pages} onClick={() => setPage((value) => value + 1)}>Next</SecondaryButton></div></div>
     {modal ? <UserModal modal={modal} selected={selected} saving={saving} onClose={() => setModal(null)} onSubmit={submit} /> : null}
   </AppShell>;
 }
 
-function UserTable({ users, currentUserId, saving, onEdit, onToggle }: { users: UserDirectoryItem[]; currentUserId?: string; saving: boolean; onEdit: (user: UserDirectoryItem) => void; onToggle: (user: UserDirectoryItem) => void }) {
+function UserTable({ users, currentUserId, saving, onDelete, onEdit, onToggle }: { users: UserDirectoryItem[]; currentUserId?: string; saving: boolean; onDelete: (user: UserDirectoryItem) => void; onEdit: (user: UserDirectoryItem) => void; onToggle: (user: UserDirectoryItem) => void }) {
   return <div className="overflow-x-auto rounded-[8px] border border-[#e4e4e7] bg-white"><table className="w-full min-w-[900px] text-left">
     <thead className="bg-[#f8f9fb] text-[10px] uppercase tracking-wider text-[#85858d]"><tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Email</th><th className="px-5 py-3">Role</th><th className="px-5 py-3">Phone</th><th className="px-5 py-3">Status</th><th className="px-5 py-3 text-right">Actions</th></tr></thead>
     <tbody>{users.map((user) => <tr className={`border-t border-[#ececee] text-[12px] ${user.isActive === false ? "bg-[#fafafa] text-[#878990]" : ""}`} key={user.id}>
       <td className="px-5 py-4 font-semibold">{user.fullName}</td><td className="px-5 py-4">{user.email}</td><td className="px-5 py-4">{user.role.replaceAll("_", " ")}</td><td className="px-5 py-4">{formatValue(user.phone)}</td>
       <td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${user.isActive === false ? "bg-[#eceef1] text-[#71747b]" : "bg-[#e8f6ec] text-[#087d2f]"}`}>{user.isActive === false ? "Inactive" : "Active"}</span></td>
-      <td className="px-5 py-4"><div className="flex justify-end gap-2"><SecondaryButton onClick={() => onEdit(user)}>Edit</SecondaryButton><SecondaryButton danger={user.isActive !== false} disabled={saving || user.id === currentUserId} onClick={() => onToggle(user)}>{user.id === currentUserId ? "Current account" : user.isActive === false ? "Reactivate" : "Deactivate"}</SecondaryButton></div></td>
+      <td className="px-5 py-4"><div className="flex justify-end gap-2"><SecondaryButton onClick={() => onEdit(user)}>Edit</SecondaryButton><SecondaryButton danger={user.isActive !== false} disabled={saving || user.id === currentUserId} onClick={() => onToggle(user)}>{user.id === currentUserId ? "Current account" : user.isActive === false ? "Reactivate" : "Deactivate"}</SecondaryButton><SecondaryButton danger disabled={saving || user.id === currentUserId} onClick={() => onDelete(user)}>Delete permanently</SecondaryButton></div></td>
     </tr>)}</tbody>
   </table></div>;
 }

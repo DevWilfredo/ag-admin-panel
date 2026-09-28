@@ -29,6 +29,8 @@ export type CreatePaymentResponse = {
   payment: PaymentDto;
 };
 
+export type UpdatePaymentPayload = Partial<Omit<CreatePaymentPayload, "orderId">>;
+
 export type MarkPaymentSentPayload = {
   escrowBank?: string;
   notes?: string;
@@ -74,6 +76,21 @@ export function createPayment(payload: CreatePaymentPayload) {
     auth: true,
     body: payload,
     method: "POST",
+  });
+}
+
+export function updatePayment(orderId: string, payload: UpdatePaymentPayload) {
+  return apiRequest<{ message?: string; payment: PaymentDto }>(`/payments/order/${orderId}`, {
+    auth: true,
+    body: payload,
+    method: "PUT",
+  });
+}
+
+export function deletePayment(orderId: string) {
+  return apiRequest<{ message?: string }>(`/payments/order/${orderId}`, {
+    auth: true,
+    method: "DELETE",
   });
 }
 

@@ -8,6 +8,7 @@ export type InventoryDto = {
   quantity?: number | string;
   unit?: string;
   lotId?: string;
+  commodityType?: string;
   releasedAt?: string | null;
   transferredAt?: string | null;
   photoUrls?: string[];
@@ -67,6 +68,13 @@ export type UpdateCustodyPayload = {
   custodyStatus: CustodyStatus;
 };
 
+export type UpdateInventoryPayload = {
+  quantity?: number;
+  unit?: string;
+  lotId?: string;
+  commodityType?: string;
+};
+
 export function createInventory(payload: CreateInventoryPayload) {
   return apiRequest<CreateInventoryResponse>("/inventory", {
     auth: true,
@@ -102,6 +110,21 @@ export function updateInventoryCustody(inventoryId: string, payload: UpdateCusto
     auth: true,
     body: payload,
     method: "PATCH",
+  });
+}
+
+export function updateInventory(inventoryId: string, payload: UpdateInventoryPayload) {
+  return apiRequest<{ message?: string; inventory: InventoryDto }>(`/inventory/${inventoryId}`, {
+    auth: true,
+    body: payload,
+    method: "PUT",
+  });
+}
+
+export function deleteInventory(inventoryId: string) {
+  return apiRequest<{ message?: string }>(`/inventory/${inventoryId}`, {
+    auth: true,
+    method: "DELETE",
   });
 }
 

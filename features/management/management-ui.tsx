@@ -217,12 +217,14 @@ export function DateField({
   required,
   defaultValue = "",
   placeholder = "Select a date",
+  calendarPlacement = "top",
 }: {
   name: string;
   label: string;
   required?: boolean;
   defaultValue?: string;
   placeholder?: string;
+  calendarPlacement?: "top" | "bottom";
 }) {
   const initial = defaultValue
     ? new Date(`${defaultValue}T12:00:00`)
@@ -269,7 +271,7 @@ export function DateField({
   return (
     <div
       ref={root}
-      className="relative grid min-w-0 gap-1.5 text-[11px] font-semibold text-[#585961]"
+      className={`relative grid min-w-0 gap-1.5 text-[11px] font-semibold text-[#585961] ${open ? "z-[200]" : "z-0"}`}
     >
       <span>
         {label}
@@ -295,7 +297,7 @@ export function DateField({
             initial={{ opacity: 0, y: 6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.98 }}
-            className="absolute bottom-[48px] left-0 z-50 w-[292px] max-w-[calc(100vw-40px)] rounded-[10px] border border-[#dfe3e8] bg-white p-3 shadow-[0_18px_45px_rgba(12,35,65,.18)]"
+            className={`absolute left-0 z-[210] w-[292px] max-w-[calc(100vw-40px)] rounded-[10px] border border-[#dfe3e8] bg-white p-3 shadow-[0_18px_45px_rgba(12,35,65,.18)] ${calendarPlacement === "bottom" ? "top-[64px]" : "bottom-[48px]"}`}
           >
             <div className="flex items-center justify-between">
               <button

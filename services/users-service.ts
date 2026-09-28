@@ -51,3 +51,4 @@ export function getUser(id: string) { return apiRequest<UserDirectoryItem>(`/aut
 export function updateUser(id: string, payload: UpdateUserPayload) { return apiRequest<{ message?: string; user: UserDirectoryItem }>(`/auth/users/${id}`, { auth: true, method: "PATCH", body: payload }); }
 export function deactivateUser(id: string) { return apiRequest<{ message?: string; user: UserDirectoryItem }>(`/auth/users/${id}/deactivate`, { auth: true, method: "PATCH" }); }
 export function reactivateUser(id: string) { return apiRequest<{ message?: string; user: UserDirectoryItem }>(`/auth/users/${id}/reactivate`, { auth: true, method: "PATCH" }); }
+export function deleteUser(id: string) { return apiRequest<{ message?: string; deletedOrders?: number }>(`/auth/users/${id}`, { auth: true, method: "DELETE" }); }
