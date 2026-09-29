@@ -1,5 +1,6 @@
 import { ApiError, getErrorMessage } from "@/services/api-errors";
 import type { CurrentUser } from "@/services/session-service";
+import { getRoleLabel } from "@/services/role-labels";
 import { getOrderAudit, listOrders, type OrderAuditLogDto, type OrderListItemDto } from "@/services/orders-service";
 import { dashboardMockData } from "./mock-dashboard";
 import type { ActivityItem, DashboardData, DashboardDataState, RecentTransaction } from "./types";
@@ -135,7 +136,7 @@ function buildDashboardHeader(user: CurrentUser): DashboardData["header"] {
     }).format(new Date()),
     searchPlaceholder: "Search transaction number",
     profileName: user.fullName,
-    profileSubtitle: `${formatRole(user.role)} - AgroTrust Backoffice`,
+    profileSubtitle: `${getRoleLabel(user.role)} - AgroTrust Backoffice`,
     unreadNotifications: 0,
   };
 }
@@ -281,12 +282,6 @@ function formatDate(value: string) {
   }).format(date);
 }
 
-function formatRole(role: string) {
-  return role
-    .split("_")
-    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
-    .join(" ");
-}
 
 function formatStatus(status: string) {
   return status

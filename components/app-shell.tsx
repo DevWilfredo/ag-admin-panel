@@ -22,6 +22,7 @@ import { LogoutButton } from "@/features/auth/logout-button";
 import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { logout, logoutLocal } from "@/services/auth-service";
 import { hasCapability, type Capability } from "@/services/authorization";
+import { getRoleLabel } from "@/services/role-labels";
 import { GlobalSearch } from "@/components/global-search";
 
 export type AppNavKey =
@@ -169,7 +170,7 @@ export function AppShell({
   const profileSubtitle =
     header.profileSubtitle ||
     (currentUser
-      ? `${formatRole(currentUser.role)} - AgroTrust Backoffice`
+      ? `${getRoleLabel(currentUser.role)} - AgroTrust Backoffice`
       : "AgroTrust Backoffice");
 
   useEffect(() => {
@@ -460,13 +461,6 @@ function InitialAvatar({
       {initial}
     </span>
   );
-}
-
-function formatRole(role: string) {
-  return role
-    .split("_")
-    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
-    .join(" ");
 }
 
 function Sidebar({

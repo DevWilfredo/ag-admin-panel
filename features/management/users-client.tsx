@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { registerUser } from "@/services/auth-service";
 import { getErrorMessage } from "@/services/api-errors";
+import { getRoleLabel } from "@/services/role-labels";
 import type { UserRole } from "@/services/session-service";
 import {
   deactivateUser, deleteUser, getUser, listUsersPage, reactivateUser, updateUser,
@@ -113,7 +114,7 @@ export function UsersClient() {
     <PageHeading title="Users" description="Create, edit, deactivate and reactivate platform accounts." action={<PrimaryButton onClick={() => { setSelected(undefined); setModal("create"); }}>New user</PrimaryButton>} />
     <div className="grid max-w-[760px] gap-3 sm:grid-cols-[1fr_220px]">
       <label className="grid gap-1.5 text-[11px] font-semibold text-[#585961]">Search users<input aria-label="Search users" className="h-10 rounded-[7px] border border-[#dedef2] px-3 text-[12px] outline-none focus:border-[#3971ad]" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Search by name or email" /></label>
-      <SelectField label="Filter by role" value={role} onChange={(value) => { setRole(value); setPage(1); }} options={[{ value: "", label: "All roles" }, ...roles.map((item) => ({ value: item, label: item.replaceAll("_", " ") }))]} />
+      <SelectField label="Filter by role" value={role} onChange={(value) => { setRole(value); setPage(1); }} options={[{ value: "", label: "All roles" }, ...roles.map((item) => ({ value: item, label: getRoleLabel(item) }))]} />
     </div>
     {notice ? <Notice message={notice} /> : null}
     {error ? <Notice error message={error} /> : null}
@@ -127,7 +128,7 @@ function UserTable({ users, currentUserId, saving, onDelete, onEdit, onToggle }:
   return <div className="overflow-x-auto rounded-[8px] border border-[#e4e4e7] bg-white"><table className="w-full min-w-[900px] text-left">
     <thead className="bg-[#f8f9fb] text-[10px] uppercase tracking-wider text-[#85858d]"><tr><th className="px-5 py-3">Name</th><th className="px-5 py-3">Email</th><th className="px-5 py-3">Role</th><th className="px-5 py-3">Phone</th><th className="px-5 py-3">Status</th><th className="px-5 py-3 text-right">Actions</th></tr></thead>
     <tbody>{users.map((user) => <tr className={`border-t border-[#ececee] text-[12px] ${user.isActive === false ? "bg-[#fafafa] text-[#878990]" : ""}`} key={user.id}>
-      <td className="px-5 py-4 font-semibold">{user.fullName}</td><td className="px-5 py-4">{user.email}</td><td className="px-5 py-4">{user.role.replaceAll("_", " ")}</td><td className="px-5 py-4">{formatValue(user.phone)}</td>
+      <td className="px-5 py-4 font-semibold">{user.fullName}</td><td className="px-5 py-4">{user.email}</td><td className="px-5 py-4">{getRoleLabel(user.role)}</td><td className="px-5 py-4">{formatValue(user.phone)}</td>
       <td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${user.isActive === false ? "bg-[#eceef1] text-[#71747b]" : "bg-[#e8f6ec] text-[#087d2f]"}`}>{user.isActive === false ? "Inactive" : "Active"}</span></td>
       <td className="px-5 py-4"><div className="flex justify-end gap-2"><SecondaryButton onClick={() => onEdit(user)}>Edit</SecondaryButton><SecondaryButton danger={user.isActive !== false} disabled={saving || user.id === currentUserId} onClick={() => onToggle(user)}>{user.id === currentUserId ? "Current account" : user.isActive === false ? "Reactivate" : "Deactivate"}</SecondaryButton><SecondaryButton danger disabled={saving || user.id === currentUserId} onClick={() => onDelete(user)}>Delete permanently</SecondaryButton></div></td>
     </tr>)}</tbody>
@@ -141,7 +142,7 @@ function UserModal({ modal, selected, saving, onClose, onSubmit }: { modal: "cre
       {modal === "create" ? <Field name="email" label="Email" type="email" required /> : <div className="grid gap-1.5 text-[11px] font-semibold text-[#585961]"><span>Email</span><div className="flex h-10 items-center rounded-[7px] border border-[#e2e4e8] bg-[#f6f7f8] px-3 text-[12px] font-normal text-[#777b82]">{selected?.email}</div></div>}
       <Field name="password" label={modal === "edit" ? "New password (optional)" : "Temporary password"} type="password" required={modal === "create"} />
       <Field name="phone" label="Phone" defaultValue={selected?.phone} />
-      <SelectField name="role" label="Role" defaultValue={selected?.role || ""} options={roles.map((item) => ({ value: item, label: item.replaceAll("_", " ") }))} required />
+      <SelectField name="role" label="Role" defaultValue={selected?.role || ""} options={roles.map((item) => ({ value: item, label: getRoleLabel(item) }))} required />
       <div className="flex justify-end sm:col-span-2"><PrimaryButton type="submit" disabled={saving}>{saving ? "Saving…" : modal === "edit" ? "Save changes" : "Create user"}</PrimaryButton></div>
     </form>
   </Modal>;

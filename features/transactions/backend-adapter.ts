@@ -1,5 +1,6 @@
 import { ApiError, getErrorMessage } from "@/services/api-errors";
 import { getCachedCurrentUser } from "@/services/auth-service";
+import { getRoleLabel } from "@/services/role-labels";
 import {
   getInventoryByOrder,
   type InventoryDto,
@@ -189,7 +190,7 @@ function buildTransactionsHeader() {
     avatarSrc: "/user-avatar.png",
     profileName: user?.fullName,
     profileSubtitle: user
-      ? `${formatRole(user.role)} - AgroTrust Backoffice`
+      ? `${getRoleLabel(user.role)} - AgroTrust Backoffice`
       : undefined,
   };
 }
@@ -696,13 +697,6 @@ function formatDateTime(value: string) {
     month: "short",
     year: "numeric",
   }).format(date);
-}
-
-function formatRole(role: string) {
-  return role
-    .split("_")
-    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
-    .join(" ");
 }
 
 function formatOrderStatus(status: string) {
