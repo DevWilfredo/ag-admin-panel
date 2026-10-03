@@ -28,7 +28,7 @@ export function DataAnalyticsClient({ activeTab, initialFilters = {}, previewSta
   }, [activeTab, filters, previewState]);
 
   useEffect(() => {
-    if (user.role !== "ADMIN" || previewState) return;
+    if (user?.role !== "ADMIN" || previewState) return;
     let mounted = true;
     setLoadingUsers(true);
     void listUsers({ limit: 100 })
@@ -36,7 +36,7 @@ export function DataAnalyticsClient({ activeTab, initialFilters = {}, previewSta
       .catch(() => { if (mounted) setUsers([]); })
       .finally(() => { if (mounted) setLoadingUsers(false); });
     return () => { mounted = false; };
-  }, [previewState, user.role]);
+  }, [previewState, user?.role]);
 
   function applyFilters(next: AnalyticsFilters) {
     setFilters(next);
@@ -48,7 +48,7 @@ export function DataAnalyticsClient({ activeTab, initialFilters = {}, previewSta
   return <DataAnalyticsScreen
     activeTab={activeTab}
     filterQuery={filterQuery}
-    filters={user.role === "ADMIN" ? <AnalyticsFilterBar filters={filters} loadingUsers={loadingUsers} onApply={applyFilters} users={users} /> : undefined}
+    filters={user?.role === "ADMIN" ? <AnalyticsFilterBar filters={filters} loadingUsers={loadingUsers} onApply={applyFilters} users={users} /> : undefined}
     state={previewState ? getDataAnalyticsMockState(previewState, activeTab) : state}
   />;
 }
