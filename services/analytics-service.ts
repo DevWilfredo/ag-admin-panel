@@ -24,15 +24,33 @@ export type OperationsTimelineDto = {
   timeline: { stage: string; startedAt: string; endedAt: string | null; durationHours: number | null; actor?: { fullName: string; role: string }; notes?: string }[];
 };
 
-const get = <T>(path: string) => apiRequest<T>(path, { auth: true });
+export type AnalyticsFilters = {
+  startDate?: string;
+  endDate?: string;
+  producerId?: string;
+  buyerId?: string;
+  lenderId?: string;
+  keeperId?: string;
+};
 
-export const getOperationsSummary = () => get<OperationsSummaryDto>("/analytics/operations/summary");
+function withFilters(path: string, filters: AnalyticsFilters = {}) {
+  const query = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) query.set(key, value);
+  });
+  return `${path}${query.size ? `?${query.toString()}` : ""}`;
+}
+
+const get = <T>(path: string, filters?: AnalyticsFilters) =>
+  apiRequest<T>(withFilters(path, filters), { auth: true });
+
+export const getOperationsSummary = (filters?: AnalyticsFilters) => get<OperationsSummaryDto>("/analytics/operations/summary", filters);
 export const getOperationsTimeline = (orderId: string) => get<OperationsTimelineDto>(`/analytics/operations/timeline/${orderId}`);
-export const getCycleDuration = () => get<CycleDurationDto>("/analytics/operations/cycle-duration");
-export const getShipmentStatus = () => get<ShipmentStatusDto>("/analytics/operations/shipment-status");
-export const getExecutionEfficiency = () => get<ExecutionEfficiencyDto>("/analytics/operations/execution-efficiency");
-export const getCapitalFlow = () => get<CapitalFlowDto>("/analytics/flow/capital");
-export const getGeographicFlow = () => get<GeographicFlowDto>("/analytics/flow/geographic");
-export const getPaymentTiming = () => get<PaymentTimingDto>("/analytics/flow/payment-timing");
-export const getVolumeOverTime = () => get<VolumeOverTimeDto>("/analytics/flow/volume-over-time");
-export const getCommodityExposure = () => get<CommodityExposureDto>("/analytics/market/commodity-exposure");
+export const getCycleDuration = (filters?: AnalyticsFilters) => get<CycleDurationDto>("/analytics/operations/cycle-duration", filters);
+export const getShipmentStatus = (filters?: AnalyticsFilters) => get<ShipmentStatusDto>("/analytics/operations/shipment-status", filters);
+export const getExecutionEfficiency = (filters?: AnalyticsFilters) => get<ExecutionEfficiencyDto>("/analytics/operations/execution-efficiency", filters);
+export const getCapitalFlow = (filters?: AnalyticsFilters) => get<CapitalFlowDto>("/analytics/flow/capital", filters);
+export const getGeographicFlow = (filters?: AnalyticsFilters) => get<GeographicFlowDto>("/analytics/flow/geographic", filters);
+export const getPaymentTiming = (filters?: AnalyticsFilters) => get<PaymentTimingDto>("/analytics/flow/payment-timing", filters);
+export const getVolumeOverTime = (filters?: AnalyticsFilters) => get<VolumeOverTimeDto>("/analytics/flow/volume-over-time", filters);
+export const getCommodityExposure = (filters?: AnalyticsFilters) => get<CommodityExposureDto>("/analytics/market/commodity-exposure", filters);

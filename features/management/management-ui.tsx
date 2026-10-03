@@ -99,11 +99,13 @@ export function Modal({
   description,
   children,
   onClose,
+  placement = "center",
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   onClose: () => void;
+  placement?: "center" | "top";
 }) {
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -121,7 +123,7 @@ export function Modal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-[120] grid place-items-center bg-[#061426]/55 p-3 backdrop-blur-[3px] sm:p-5"
+      className={`fixed inset-0 z-[2000] grid justify-items-center overflow-y-auto bg-[#061426]/55 p-3 backdrop-blur-[3px] sm:p-5 ${placement === "top" ? "items-start pt-[4dvh] sm:pt-[5dvh]" : "place-items-center"}`}
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) onClose();
       }}

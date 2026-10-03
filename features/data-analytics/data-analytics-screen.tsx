@@ -16,6 +16,7 @@ import type {
   ShipmentStatusChart,
   VerticalBarChartData,
 } from "./types";
+import type { ReactNode } from "react";
 
 const defaultHeader = {
   title: "Data Analytics",
@@ -31,14 +32,18 @@ const cardClass = "rounded-[8px] border border-[#e8e8ea] bg-white";
 export function DataAnalyticsScreen({
   activeTab,
   state,
+  filters,
+  filterQuery,
 }: {
   activeTab: AnalyticsTabKey;
   state: DataAnalyticsState;
+  filters?: ReactNode;
+  filterQuery?: string;
 }) {
   if (state.status === "ready") {
     return (
       <AppShell activeNav="analytics" header={state.data.header} mainClassName="gap-0 px-0 py-0">
-        <DataAnalyticsReady activeTab={activeTab} data={state.data} />
+        <DataAnalyticsReady activeTab={activeTab} data={state.data} filters={filters} filterQuery={filterQuery} />
       </AppShell>
     );
   }
@@ -46,7 +51,8 @@ export function DataAnalyticsScreen({
   if (state.status === "loading") {
     return (
       <AppShell activeNav="analytics" header={defaultHeader} mainClassName="gap-0 px-0 py-0">
-        <AnalyticsTabs tabs={buildTabs(activeTab)} />
+        <AnalyticsTabs tabs={buildTabs(activeTab)} filterQuery={filterQuery} />
+        {filters}
         <div className="grid gap-[22px] px-4 py-5 sm:px-6 lg:px-5">
           <DataAnalyticsLoadingState />
         </div>
@@ -56,7 +62,8 @@ export function DataAnalyticsScreen({
 
   return (
     <AppShell activeNav="analytics" header={defaultHeader} mainClassName="gap-0 px-0 py-0">
-      <AnalyticsTabs tabs={buildTabs(activeTab)} />
+      <AnalyticsTabs tabs={buildTabs(activeTab)} filterQuery={filterQuery} />
+      {filters}
       <div className="px-4 py-5 sm:px-6 lg:px-5">
         <DataAnalyticsStatePanel message={state.message} title={state.title} />
       </div>
@@ -67,15 +74,20 @@ export function DataAnalyticsScreen({
 function DataAnalyticsReady({
   activeTab,
   data,
+  filters,
+  filterQuery,
 }: {
   activeTab: AnalyticsTabKey;
   data: DataAnalyticsData;
+  filters?: ReactNode;
+  filterQuery?: string;
 }) {
   const exportAction = <div className="flex justify-end px-4 pt-4 sm:px-6 lg:px-5"><a className="inline-flex h-10 min-w-[140px] items-center justify-center rounded-[7px] bg-[#15447c] px-4 text-[12px] font-semibold text-white hover:bg-[#0d3768]" download={`agrotrust-${activeTab}-analytics.csv`} href={buildAnalyticsCsvUrl(activeTab, data)}>Export report</a></div>;
   if (activeTab === "flow") {
     return (
       <>
-        <AnalyticsTabs tabs={data.tabs} />
+        <AnalyticsTabs tabs={data.tabs} filterQuery={filterQuery} />
+        {filters}
         {exportAction}
         <FlowAnalyticsView flow={data.flow} />
       </>
@@ -85,7 +97,8 @@ function DataAnalyticsReady({
   if (activeTab === "market") {
     return (
       <>
-        <AnalyticsTabs tabs={data.tabs} />
+        <AnalyticsTabs tabs={data.tabs} filterQuery={filterQuery} />
+        {filters}
         {exportAction}
         <MarketAnalyticsView market={data.market} />
       </>
@@ -94,7 +107,8 @@ function DataAnalyticsReady({
 
   return (
     <>
-      <AnalyticsTabs tabs={data.tabs} />
+      <AnalyticsTabs tabs={data.tabs} filterQuery={filterQuery} />
+      {filters}
       {exportAction}
       <div className="grid gap-[22px] px-4 py-5 sm:px-6 lg:px-5">
         {data.summary?.length ? (
@@ -136,7 +150,7 @@ function OperationsTimelines({ timelines }: { timelines: NonNullable<DataAnalyti
   </section>;
 }
 
-function AnalyticsTabs({ tabs }: { tabs: AnalyticsTab[] }) {
+function AnalyticsTabs({ tabs, filterQuery }: { tabs: AnalyticsTab[]; filterQuery?: string }) {
   return (
     <div className="border-b border-[#eeeeef] bg-white px-4 sm:px-6 lg:px-5">
       <nav aria-label="Analytics sections" className="flex h-[40px] items-end gap-10">
@@ -146,7 +160,7 @@ function AnalyticsTabs({ tabs }: { tabs: AnalyticsTab[] }) {
             className={`relative inline-flex h-full items-center px-1 text-[11px] font-medium leading-[16px] ${
               tab.active ? "text-[#15447C]" : "text-[#5f5f65]"
             }`}
-            href={getAnalyticsTabHref(tab.label)}
+            href={getAnalyticsTabHref(tab.label, filterQuery)}
             key={tab.label}
           >
             {tab.label}
@@ -166,16 +180,17 @@ function buildTabs(activeTab: AnalyticsTabKey): AnalyticsTab[] {
   ];
 }
 
-function getAnalyticsTabHref(label: AnalyticsTab["label"]) {
+function getAnalyticsTabHref(label: AnalyticsTab["label"], filterQuery?: string) {
+  const suffix = filterQuery ? `&${filterQuery}` : "";
   if (label === "Flow") {
-    return "/data-analytics?tab=flow";
+    return `/data-analytics?tab=flow${suffix}`;
   }
 
   if (label === "Market") {
-    return "/data-analytics?tab=market";
+    return `/data-analytics?tab=market${suffix}`;
   }
 
-  return "/data-analytics";
+  return filterQuery ? `/data-analytics?tab=operations&${filterQuery}` : "/data-analytics";
 }
 
 function FlowAnalyticsView({ flow }: { flow: FlowAnalyticsData }) {

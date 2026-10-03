@@ -26,12 +26,12 @@ const readCapabilities: Capability[] = [
   "view:inventory",
   "view:documents",
   "view:payments",
+  "view:analytics",
 ];
 
 const capabilitiesByRole: Record<UserRole, ReadonlySet<Capability>> = {
   ADMIN: new Set<Capability>([
     ...readCapabilities,
-    "view:analytics",
     "manage:users",
     "manage:orders",
     "advance:orders",

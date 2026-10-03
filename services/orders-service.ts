@@ -108,6 +108,10 @@ export type CreateOrderResponse = {
   order: OrderDto;
 };
 
+export type DeleteOrderResponse = {
+  message?: string;
+};
+
 export type AdvanceOrderPayload = {
   notes?: string;
 };
@@ -156,6 +160,13 @@ export function createOrder(payload: CreateOrderPayload) {
     auth: true,
     body: payload,
     method: "POST",
+  });
+}
+
+export function deleteOrder(orderId: string) {
+  return apiRequest<DeleteOrderResponse>(`/orders/${orderId}`, {
+    auth: true,
+    method: "DELETE",
   });
 }
 

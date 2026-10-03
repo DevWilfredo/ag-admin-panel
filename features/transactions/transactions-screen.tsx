@@ -148,11 +148,17 @@ export function TransactionsScreen({
   filters,
   tab,
   onCreateOrder,
+  onDeleteOrder,
+  deletingOrder,
+  actionError,
 }: {
   state: TransactionsDataState;
   filters: OrderFilters;
   tab: TransactionTabKey;
   onCreateOrder?: () => void;
+  onDeleteOrder?: (orderId: string, orderNumber: string) => void;
+  deletingOrder?: boolean;
+  actionError?: string;
 }) {
   if (state.status === "ready") {
     return (
@@ -166,7 +172,8 @@ export function TransactionsScreen({
           tab={tab}
           onCreateOrder={onCreateOrder}
         />
-        <TransactionsReady data={state.data} />
+        {actionError ? <div className="mb-4"><Notice error message={actionError} /></div> : null}
+        <TransactionsReady data={state.data} onDeleteOrder={onDeleteOrder} deletingOrder={deletingOrder} />
       </AppShell>
     );
   }
@@ -208,7 +215,7 @@ export function TransactionsScreen({
   );
 }
 
-function TransactionsReady({ data }: { data: TransactionsData }) {
+function TransactionsReady({ data, onDeleteOrder, deletingOrder }: { data: TransactionsData; onDeleteOrder?: (orderId: string, orderNumber: string) => void; deletingOrder?: boolean }) {
   return (
     <motion.section
       aria-labelledby="transactions-view-title"
@@ -224,7 +231,7 @@ function TransactionsReady({ data }: { data: TransactionsData }) {
         tabs={data.tabs}
         transactions={data.transactions}
       />
-      <TransactionDetailPanel detail={data.selectedTransaction} />
+      <TransactionDetailPanel detail={data.selectedTransaction} onDeleteOrder={onDeleteOrder} deletingOrder={deletingOrder} />
     </motion.section>
   );
 }
@@ -372,7 +379,7 @@ function TransactionListRow({
   );
 }
 
-function TransactionDetailPanel({ detail }: { detail: TransactionDetail }) {
+function TransactionDetailPanel({ detail, onDeleteOrder, deletingOrder }: { detail: TransactionDetail; onDeleteOrder?: (orderId: string, orderNumber: string) => void; deletingOrder?: boolean }) {
   return (
     <motion.article
       className="min-w-0 bg-white"
@@ -413,6 +420,16 @@ function TransactionDetailPanel({ detail }: { detail: TransactionDetail }) {
             <ArrowRightIcon className="h-3.5 w-3.5 text-[#8d8d93]" />
             <span>{detail.route.destination}</span>
           </motion.p>
+          {onDeleteOrder ? (
+            <button
+              className="mt-3 inline-flex h-8 items-center justify-center rounded-[6px] border border-[#efc5c9] px-3 text-[10px] font-semibold text-[#a73640] transition-colors hover:bg-[#fff1f2] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={deletingOrder}
+              onClick={() => onDeleteOrder(detail.id, detail.number)}
+              type="button"
+            >
+              {deletingOrder ? "Deleting transaction…" : "Delete transaction permanently"}
+            </button>
+          ) : null}
         </motion.div>
         <ProgressDonut percent={detail.progressPercent} />
       </motion.div>
@@ -922,6 +939,7 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
               : "Manual fallback when live tracking is unavailable."
           }
           onClose={() => setModal(null)}
+          placement={modal === "assign" ? "top" : "center"}
         >
           {error ? (
             <div className="mb-4">

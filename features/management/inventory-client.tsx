@@ -137,7 +137,7 @@ export function InventoryClient() {
     }
   }
   async function removeInventory() {
-    if (!selected || !window.confirm(`Delete inventory lot ${selected.lotId || selected.id}? This cannot be undone.`)) return;
+    if (!selected || !window.confirm(`Permanently delete inventory lot ${selected.lotId || selected.id}?\n\nAny attached warehouse receipt will also be deleted. The backend will block this action once the transaction has reached Bill of Lading. This action cannot be undone.`)) return;
     setSaving(true);
     try {
       const response = await deleteInventory(selected.id);

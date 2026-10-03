@@ -41,6 +41,13 @@ test("exposes every functional ADMIN quick action", async ({ adminPage: page }) 
 
 test("renders all live analytics modules without mock price data", async ({ adminPage: page }) => {
   await page.goto("/data-analytics");
+  await expect(page.getByText("Admin analytics filters")).toBeVisible();
+  await expect(page.getByLabel("Start date")).toBeVisible();
+  await expect(page.getByLabel("End date")).toBeVisible();
+  await expect(page.getByLabel("Seller")).toBeVisible();
+  await expect(page.getByLabel("Buyer")).toBeVisible();
+  await expect(page.getByLabel("Lender")).toBeVisible();
+  await expect(page.getByLabel("Warehouse keeper")).toBeVisible();
   await expect(page.getByRole("link", { name: "Export report" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Shipment Status Distribution" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Order Execution Timelines" })).toBeVisible();

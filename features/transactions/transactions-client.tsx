@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthenticatedUser } from "@/features/auth/auth-context";
-import { createOrder } from "@/services/orders-service";
+import { createOrder, deleteOrder } from "@/services/orders-service";
 import { getErrorMessage } from "@/services/api-errors";
 import { listUsers, type UserDirectoryItem } from "@/services/users-service";
 import { hasCapability } from "@/services/authorization";
@@ -53,6 +53,7 @@ export function TransactionsClient({
   });
   const [modal, setModal] = useState(false),
     [saving, setSaving] = useState(false),
+    [deleting, setDeleting] = useState(false),
     [loadingUsers, setLoadingUsers] = useState(false);
   const [users, setUsers] = useState<Record<string, UserDirectoryItem[]>>({
     PRODUCER: [],
@@ -159,6 +160,24 @@ export function TransactionsClient({
     }
   }
 
+  async function removeOrder(orderId: string, orderNumber: string) {
+    const confirmed = window.confirm(
+      `Permanently delete transaction ${orderNumber}?\n\nThis will also delete all linked inventory, documents, payments, vessel tracking, warehouse receipts and audit logs. This action cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setFormError(undefined);
+    try {
+      await deleteOrder(orderId);
+      router.replace("/transactions");
+      router.refresh();
+    } catch (error) {
+      setFormError(getErrorMessage(error, "The transaction could not be deleted."));
+      setDeleting(false);
+    }
+  }
+
   const screenState = previewState
     ? getTransactionsMockState(previewState, tab)
     : state;
@@ -169,6 +188,9 @@ export function TransactionsClient({
         filters={filters}
         tab={tab}
         onCreateOrder={canCreateOrder ? () => void openCreateModal() : undefined}
+        onDeleteOrder={canCreateOrder ? (orderId, orderNumber) => void removeOrder(orderId, orderNumber) : undefined}
+        deletingOrder={deleting}
+        actionError={!modal ? formError : undefined}
       />
       {canCreateOrder && modal ? (
         <Modal

@@ -10,19 +10,26 @@ import {
   getPaymentTiming,
   getShipmentStatus,
   getVolumeOverTime,
+  type AnalyticsFilters,
 } from "@/services/analytics-service";
 import { listOrders } from "@/services/orders-service";
 import type { AnalyticsTabKey, DataAnalyticsState } from "./types";
 
 const colors = ["#245895", "#087d2f", "#f2aa1d", "#946015", "#7b61a8"];
 
-export async function loadAnalyticsBackendState(activeTab: AnalyticsTabKey): Promise<DataAnalyticsState> {
+export async function loadAnalyticsBackendState(activeTab: AnalyticsTabKey, filters: AnalyticsFilters = {}): Promise<DataAnalyticsState> {
   try {
     const [summary, shipment, cycle, efficiency, capital, geographic, timing, volume, exposure, orders] = await Promise.all([
-      getOperationsSummary(), getShipmentStatus(), getCycleDuration(), getExecutionEfficiency(), getCapitalFlow(),
-      getGeographicFlow(), getPaymentTiming(), getVolumeOverTime(), getCommodityExposure(), listOrders({ page: 1, limit: 20 }),
+      getOperationsSummary(filters), getShipmentStatus(filters), getCycleDuration(filters), getExecutionEfficiency(filters), getCapitalFlow(filters),
+      getGeographicFlow(filters), getPaymentTiming(filters), getVolumeOverTime(filters), getCommodityExposure(filters), listOrders({ page: 1, limit: 20, dateFrom: filters.startDate, dateTo: filters.endDate }),
     ]);
-    const timelines = await Promise.all(orders.orders.map((order) => getOperationsTimeline(order.id)));
+    const timelineOrders = orders.orders.filter((order) =>
+      (!filters.producerId || order.producer?.id === filters.producerId) &&
+      (!filters.buyerId || order.buyer?.id === filters.buyerId) &&
+      (!filters.lenderId || order.lender?.id === filters.lenderId) &&
+      (!filters.keeperId || order.keeper?.id === filters.keeperId),
+    );
+    const timelines = await Promise.all(timelineOrders.map((order) => getOperationsTimeline(order.id)));
     const cycleRows = cycle.byCommodity || [];
     const months = volume.volumeByMonth.map((item) => item.month);
     const routeTotal = geographic.routes.reduce((sum, route) => sum + route.totalQuantity, 0) || 1;

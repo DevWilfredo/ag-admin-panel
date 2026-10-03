@@ -188,7 +188,7 @@ export function WarehousesClient() {
     setGeocodeError(undefined);
   }
   async function remove(row: WarehouseDto) {
-    if (!window.confirm(`Delete ${row.name}? This action cannot be undone.`))
+    if (!window.confirm(`Permanently delete ${row.name}?\n\nLinked inventory and warehouse receipts will also be deleted. The backend will block this action if any linked inventory belongs to a transaction with a Bill of Lading. This action cannot be undone.`))
       return;
     try {
       await deleteWarehouse(row.id);
