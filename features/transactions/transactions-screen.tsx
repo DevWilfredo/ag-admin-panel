@@ -19,6 +19,7 @@ import {
 import {
   assignVessel,
   retryVesselTracking,
+  updateVessel,
   updateVesselPosition,
 } from "@/services/vessels-service";
 import type { OrderFilters } from "./transactions-client";
@@ -680,11 +681,11 @@ function ProcessTracker({ steps }: { steps: TrackerStep[] }) {
 
 function openCheckpointTarget(preview: TrackerPreview) {
   const documentHref = preview.documents?.[0]?.href;
-  const target = documentHref
+  const target = preview.href || (documentHref
     ? resolveDocumentUrl(documentHref)
     : preview.latitude !== undefined && preview.longitude !== undefined
       ? openStreetMapUrl(preview.latitude, preview.longitude)
-      : preview.imageUrls?.[0];
+      : preview.imageUrls?.[0]);
   if (target) window.open(target, "_blank", "noopener,noreferrer");
 }
 
@@ -709,7 +710,7 @@ function CheckpointHoverPreview({ preview, index, stepCount }: { preview: Tracke
         {hasLocation ? (
           <div className="relative h-[220px] overflow-hidden rounded-[9px] border border-[#dce3e9] bg-[#dce8ef]">
             <TransactionMap current={{ latitude: preview.latitude!, longitude: preview.longitude!, label: preview.subtitle || preview.title }} vesselName={preview.title} />
-            <MapGlassButton href={openStreetMapUrl(preview.latitude!, preview.longitude!)} label={preview.kind === "vessel" ? "View tracker" : "Warehouse location"} />
+            <MapGlassButton href={preview.href || openStreetMapUrl(preview.latitude!, preview.longitude!)} label={preview.kind === "vessel" ? "View tracker" : "Warehouse location"} />
           </div>
         ) : null}
         {preview.imageUrls?.length ? (
@@ -790,7 +791,7 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
     useAuthenticatedUser()?.role,
     "manage:vessels",
   );
-  const [modal, setModal] = useState<"assign" | "position" | null>(null),
+  const [modal, setModal] = useState<"assign" | "edit" | "position" | null>(null),
     [pending, setPending] = useState(false),
     [error, setError] = useState<string>();
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -808,6 +809,15 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
           voyageNumber: get("voyageNumber") || undefined,
           billOfLading: get("billOfLading") || undefined,
           scac: get("scac") || undefined,
+        });
+      else if (modal === "edit")
+        await updateVessel(detail.id, {
+          vesselName: get("vesselName"),
+          shippingLine: get("shippingLine") || undefined,
+          voyageNumber: get("voyageNumber") || undefined,
+          billOfLading: get("billOfLading") || undefined,
+          scac: get("scac") || undefined,
+          eta: get("eta") ? new Date(get("eta")).toISOString() : undefined,
         });
       else
         await updateVesselPosition(detail.id, {
@@ -861,6 +871,13 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
           {canManage ? <div className="flex flex-wrap gap-2">
             {vessel ? (
               <>
+                <button
+                  onClick={() => setModal("edit")}
+                  type="button"
+                  className="h-9 rounded-[5px] border border-[#d6e0ea] px-3 text-[11px] font-semibold text-[#15447c] transition hover:bg-[#f2f6fa]"
+                >
+                  Edit vessel details
+                </button>
                 {vessel.latitude === undefined || vessel.longitude === undefined || vessel.status === "TRACKING_FAILED" ? <button
                   onClick={() => setModal("position")}
                   type="button"
@@ -931,15 +948,17 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
       {canManage && modal ? (
         <Modal
           title={
-            modal === "assign" ? "Assign vessel" : "Update vessel position"
+            modal === "assign" ? "Assign vessel" : modal === "edit" ? "Edit vessel details" : "Update vessel position"
           }
           description={
             modal === "assign"
               ? "Connect this order with Terminal49 tracking."
-              : "Manual fallback when live tracking is unavailable."
+              : modal === "edit"
+                ? "Correct the vessel assignment details, then retry tracking if the previous request failed."
+                : "Manual fallback when live tracking is unavailable."
           }
           onClose={() => setModal(null)}
-          placement={modal === "assign" ? "top" : "center"}
+          placement={modal === "assign" || modal === "edit" ? "top" : "center"}
         >
           {error ? (
             <div className="mb-4">
@@ -947,13 +966,14 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
             </div>
           ) : null}
           <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-            {modal === "assign" ? (
+            {modal === "assign" || modal === "edit" ? (
               <>
-                <Field name="vesselName" label="Vessel name" required />
-                <Field name="shippingLine" label="Shipping line" />
-                <Field name="voyageNumber" label="Voyage number" />
-                <Field name="billOfLading" label="Master Bill of Lading" required />
-                <Field name="scac" label="SCAC code" placeholder="e.g. MAEU" required />
+                <Field name="vesselName" label="Vessel name" defaultValue={modal === "edit" ? vessel?.vesselName : undefined} required />
+                <Field name="shippingLine" label="Shipping line" defaultValue={modal === "edit" ? vessel?.shippingLine : undefined} />
+                <Field name="voyageNumber" label="Voyage number" defaultValue={modal === "edit" ? vessel?.voyageNumber : undefined} />
+                <Field name="billOfLading" label="Master Bill of Lading" defaultValue={modal === "edit" ? vessel?.billOfLading : undefined} required />
+                <Field name="scac" label="SCAC code" defaultValue={modal === "edit" ? vessel?.scac : undefined} placeholder="e.g. MAEU" required />
+                {modal === "edit" ? <Field name="eta" label="ETA" type="datetime-local" defaultValue={toDateTimeLocal(vessel?.eta)} /> : null}
               </>
             ) : (
               <>
@@ -983,7 +1003,7 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
             )}
             <div className="flex justify-end sm:col-span-2">
               <PrimaryButton type="submit" disabled={pending}>
-                {pending ? "Saving…" : "Save"}
+                {pending ? "Saving…" : modal === "edit" ? "Save vessel details" : "Save"}
               </PrimaryButton>
             </div>
           </form>
@@ -1003,6 +1023,13 @@ function SmallMetric({ label, value }: { label: string; value: string }) {
 function number(value: string) {
   const parsed = Number(value);
   return value && Number.isFinite(parsed) ? parsed : undefined;
+}
+function toDateTimeLocal(value?: string) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
 }
 function formatTrackingStatus(status?: string) {
   if (!status) return "Pending";
@@ -1368,7 +1395,7 @@ function MapPreview({ detail }: { detail: TransactionDetail }) {
   const vessel = detail.vesselDetails;
   const warehouse = detail.warehouseDetails;
   if (vessel?.latitude !== undefined && vessel.longitude !== undefined) {
-    const external = openStreetMapUrl(vessel.latitude, vessel.longitude);
+    const trackerHref = `/transactions/${detail.id}/tracking`;
     return (
       <div className={`grid gap-3 ${warehouse?.latitude !== undefined && warehouse.longitude !== undefined ? "lg:grid-cols-2" : ""}`}>
       <motion.section
@@ -1385,7 +1412,7 @@ function MapPreview({ detail }: { detail: TransactionDetail }) {
           history={vessel.history}
           vesselName={vessel.vesselName}
         />
-        <MapGlassButton href={external} label="Vessel tracker" />
+        <MapGlassButton href={trackerHref} label="Vessel tracker" />
         <div className="absolute bottom-3 left-3 z-[500] rounded-[6px] bg-white/92 px-3 py-2 text-[10px] font-semibold text-[#334] shadow-md backdrop-blur">
           {vessel.latitude.toFixed(5)}, {vessel.longitude.toFixed(5)}
           {vessel.speed !== undefined ? ` · ${vessel.speed} kn` : ""}
@@ -1454,12 +1481,13 @@ function MapPreview({ detail }: { detail: TransactionDetail }) {
 }
 
 function MapGlassButton({ href, label }: { href: string; label: string }) {
+  const external = /^https?:\/\//i.test(href);
   return (
     <a
       className="group absolute right-3 top-3 z-[500] inline-flex h-10 items-center gap-2 rounded-full border border-white/55 bg-[#0b334d]/35 py-1 pl-4 pr-1 text-[11px] font-bold text-white shadow-[0_8px_28px_rgba(0,20,45,.28),inset_0_1px_0_rgba(255,255,255,.38)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-[#8fc6dc]/70 hover:bg-[#062d49]/75 hover:shadow-[0_12px_34px_rgba(0,20,45,.42),inset_0_1px_0_rgba(190,231,246,.3)] focus:outline-none focus:ring-2 focus:ring-white/80"
       href={href}
-      rel="noreferrer"
-      target="_blank"
+      rel={external ? "noreferrer" : undefined}
+      target={external ? "_blank" : undefined}
     >
       {label}
       <span className="grid size-8 place-items-center rounded-full border border-white/35 bg-white/20 shadow-inner transition group-hover:rotate-12 group-hover:border-[#9ed4e7]/70 group-hover:bg-[#0d4a6b]/80">

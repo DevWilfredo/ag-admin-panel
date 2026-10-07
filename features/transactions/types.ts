@@ -125,6 +125,7 @@ export type TrackerPreview = {
   imageUrls?: string[];
   documents?: TrackerPreviewDocument[];
   message?: string;
+  href?: string;
 };
 
 export type TrackerStep = {

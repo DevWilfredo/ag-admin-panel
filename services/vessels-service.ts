@@ -94,7 +94,6 @@ export function getVesselLogs(orderId: string) {
 
 function unwrap(response: VesselResponse): VesselDetails {
   if ("vessel" in response || "data" in response){
-    console.log(response.data);
     return response.vessel || response.data || {}
   };
   return response as VesselDetails;

@@ -349,7 +349,7 @@ function mapOrderToTransactionDetail(
     },
     stageLabel: getVisibleStageLabel(order.status),
     status,
-    tracker: buildBackendTracker(order.status, vessel, warehouse, checklist),
+    tracker: buildBackendTracker(order.id, order.status, vessel, warehouse, checklist),
     trackerSummary: `Step ${getVisibleStageIndex(order.status)} of ${visibleStages.length}`,
     volume: formatQuantity(order.quantity, order.unit),
     vesselDetails: vessel,
@@ -530,6 +530,7 @@ function mapAuditTimeline(
 }
 
 function buildBackendTracker(
+  orderId: string,
   status: string,
   vessel?: TransactionDetail["vesselDetails"],
   warehouse?: TransactionDetail["warehouseDetails"],
@@ -567,6 +568,7 @@ function buildBackendTracker(
             subtitle: vessel?.portOfCall,
             latitude: hasVesselLocation ? vessel.latitude : undefined,
             longitude: hasVesselLocation ? vessel.longitude : undefined,
+            href: `/transactions/${orderId}/tracking`,
             message: !hasVesselLocation ? "Terminal49 has not returned a current vessel position yet." : undefined,
           }
         : definition.preview === "escrow" && documents.length === 0
