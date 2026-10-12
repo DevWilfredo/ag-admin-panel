@@ -123,7 +123,7 @@ function DataAnalyticsReady({
         ) : null}
         <section className="grid gap-[22px] xl:grid-cols-2">
           <ShipmentStatusDistribution chart={data.shipmentStatus} />
-          <CycleDurationTrend chart={data.cycleDuration} />
+          <CycleDurationByCommodity chart={data.cycleDuration} />
         </section>
         <ExecutionEfficiencyMetrics chart={data.executionEfficiency} />
         {data.operationTimelines?.length ? <OperationsTimelines timelines={data.operationTimelines} /> : null}
@@ -385,23 +385,22 @@ function ShipmentStatusDistribution({ chart }: { chart: ShipmentStatusChart }) {
   );
 }
 
-function CycleDurationTrend({ chart }: { chart: LineChartData }) {
+function CycleDurationByCommodity({ chart }: { chart: LineChartData }) {
   return (
     <section aria-labelledby="cycle-duration-title" className={`${cardClass} min-h-[344px] px-5 py-6`}>
       <ChartTitle id="cycle-duration-title" subtitle={chart.subtitle} title={chart.title} />
-      <AgroLineChart
+      <AgroBarChart
         className="mt-5 h-[245px] w-full"
         datasets={[
           {
             color: "#245895",
-            label: chart.yAxisLabel,
+            label: "Average duration",
             values: chart.values,
           },
         ]}
         labels={chart.months}
         yAxisLabel={chart.yAxisLabel}
         yMax={chart.yAxis[0]}
-        yTicks={chart.yAxis}
       />
     </section>
   );

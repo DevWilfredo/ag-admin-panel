@@ -40,6 +40,7 @@ test("Admin can review the same demo and access tracking controls", async ({ pag
   await expectCompletedDemo(page);
   await expect(page.getByRole("button", { name: "Set manual position" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Retry tracking" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit vessel details" })).toBeVisible();
   await page.getByRole("button", { name: "Preview location for B/L" }).hover();
   await expect(page.getByRole("link", { name: "View tracker" })).toBeVisible();
   await page.getByRole("button", { name: "Preview location for Inventory" }).hover();

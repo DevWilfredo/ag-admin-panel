@@ -2,6 +2,7 @@ import { ApiError, getErrorMessage } from "@/services/api-errors";
 import type { CurrentUser } from "@/services/session-service";
 import { getRoleLabel } from "@/services/role-labels";
 import { getOrderAudit, listOrders, type OrderAuditLogDto, type OrderListItemDto } from "@/services/orders-service";
+import { getPaymentByOrder, type PaymentDto } from "@/services/payments-service";
 import { dashboardMockData } from "./mock-dashboard";
 import type { ActivityItem, DashboardData, DashboardDataState, RecentTransaction } from "./types";
 
@@ -13,7 +14,10 @@ export async function loadDashboardBackendState(
       limit: 100,
       page: 1,
     });
-    const auditItems = await loadRecentAuditItems(ordersResponse.orders);
+    const [auditItems, recentTransactions] = await Promise.all([
+      loadRecentAuditItems(ordersResponse.orders),
+      loadRecentTransactions(ordersResponse.orders),
+    ]);
 
     return {
       status: "ready",
@@ -23,9 +27,7 @@ export async function loadDashboardBackendState(
         quickActions: buildQuickActions(user),
         metrics: buildMetrics(ordersResponse.orders, ordersResponse.pagination.total),
         recentActivity: auditItems,
-        recentTransactions: ordersResponse.orders
-          .slice(0, 5)
-          .map(mapOrderToRecentTransaction),
+        recentTransactions,
         notifications: [],
         commodityPerformance: {
           ...dashboardMockData.commodityPerformance,
@@ -218,9 +220,9 @@ function buildStatusOverview(orders: OrderListItemDto[]) {
   });
 }
 
-function mapOrderToRecentTransaction(order: OrderListItemDto): RecentTransaction {
+function mapOrderToRecentTransaction(order: OrderListItemDto, payment?: PaymentDto, paymentError?: unknown): RecentTransaction {
   return {
-    amount: "Payment not loaded",
+    amount: getPaymentLabel(order, payment, paymentError),
     commodity: order.commodityType || "Commodity not provided",
     href: `/transactions?orderId=${order.id}`,
     number: order.orderNumber || order.id,
@@ -228,6 +230,38 @@ function mapOrderToRecentTransaction(order: OrderListItemDto): RecentTransaction
     status: order.status === "FUNDS_DISTRIBUTED" ? "Closed" : "Active",
     volume: formatQuantity(order.quantity, order.unit),
   };
+}
+
+async function loadRecentTransactions(orders: OrderListItemDto[]) {
+  const recentOrders = orders.slice(0, 5);
+  const payments = await Promise.allSettled(
+    recentOrders.map((order) => getPaymentByOrder(order.id)),
+  );
+  return recentOrders.map((order, index) => {
+    const result = payments[index];
+    return result.status === "fulfilled"
+      ? mapOrderToRecentTransaction(order, result.value)
+      : mapOrderToRecentTransaction(order, undefined, result.reason);
+  });
+}
+
+function getPaymentLabel(order: OrderListItemDto, payment?: PaymentDto, paymentError?: unknown) {
+  if (payment) {
+    if (payment.status === "SETTLED" || payment.distributedAt) return "Payment completed";
+    const amount = Number(payment.amount);
+    if (Number.isFinite(amount)) {
+      return new Intl.NumberFormat("en-US", {
+        currency: payment.currency || "USD",
+        maximumFractionDigits: 0,
+        style: "currency",
+      }).format(amount);
+    }
+    return payment.status.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+  if (order.status === "FUNDS_DISTRIBUTED") return "Payment completed";
+  if (paymentError instanceof ApiError && paymentError.status === 403) return "Payment details restricted";
+  if (paymentError instanceof ApiError && paymentError.status === 404) return "Payment record not created";
+  return "Payment unavailable";
 }
 
 async function loadRecentAuditItems(orders: OrderListItemDto[]) {
