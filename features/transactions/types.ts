@@ -6,6 +6,7 @@ export type TransactionsDataState =
   | { status: "error"; title: string; message: string }
   | { status: "unauthorized"; title: string; message: string }
   | { status: "forbidden"; title: string; message: string }
+  | { status: "not-found"; title: string; message: string }
   | { status: "ready"; data: TransactionsData };
 
 export type TransactionsData = {
@@ -38,6 +39,7 @@ export type TransactionListItem = {
   buyer?: string;
   lender?: string;
   keeper?: string;
+  escrowAgent?: string;
   destination?: string;
 };
 
@@ -65,6 +67,11 @@ export type TransactionDetail = {
   auditTimeline?: TransactionAuditItem[];
   vesselDetails?: TransactionVessel;
   warehouseDetails?: TransactionWarehouse;
+  escrowAgent?: {
+    id?: string;
+    fullName?: string;
+    email?: string;
+  } | null;
 };
 
 export type TransactionVessel = {
@@ -74,6 +81,8 @@ export type TransactionVessel = {
   billOfLading?: string;
   scac?: string;
   eta?: string;
+  atd?: string;
+  ata?: string;
   latitude?: number;
   longitude?: number;
   speed?: number;

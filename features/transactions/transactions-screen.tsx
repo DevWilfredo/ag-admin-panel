@@ -5,8 +5,9 @@ import Image from "next/image";
 import { AppShell } from "@/components/app-shell";
 import { useAuthenticatedUser } from "@/features/auth/auth-context";
 import { LayoutGroup, motion } from "motion/react";
-import { useState, type FormEvent } from "react";
-import { advanceOrderStage } from "@/services/orders-service";
+import { useEffect, useState, type FormEvent } from "react";
+import { advanceOrderStage, assignEscrowAgent } from "@/services/orders-service";
+import { listUsers, type UserDirectoryItem } from "@/services/users-service";
 import { getErrorMessage } from "@/services/api-errors";
 import { hasCapability } from "@/services/authorization";
 import {
@@ -15,6 +16,7 @@ import {
   Modal,
   Notice,
   PrimaryButton,
+  SelectField,
 } from "@/features/management/management-ui";
 import {
   assignVessel,
@@ -785,9 +787,81 @@ function BackendDataPanels({ detail }: { detail: TransactionDetail }) {
       {detail.auditTimeline?.length ? (
         <AuditTimelinePanel items={detail.auditTimeline} />
       ) : null}
+      <EscrowAgentPanel detail={detail} key={detail.id} />
       <VesselOperationsPanel detail={detail} />
       <StageActionPanel detail={detail} />
     </motion.section>
+  );
+}
+
+function EscrowAgentPanel({ detail }: { detail: TransactionDetail }) {
+  const user = useAuthenticatedUser();
+  const canAssign = user?.role === "ADMIN";
+  const [agents, setAgents] = useState<UserDirectoryItem[]>([]);
+  const [selectedId, setSelectedId] = useState(detail.escrowAgent?.id || "");
+  const [loading, setLoading] = useState(canAssign);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    if (!canAssign) return;
+    let mounted = true;
+    void listUsers({ role: "ESCROW_AGENT", limit: 100 })
+      .then((items) => { if (mounted) setAgents(items); })
+      .catch((cause) => { if (mounted) setError(getErrorMessage(cause, "Escrow agents could not be loaded.")); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, [canAssign]);
+
+  async function save() {
+    setSaving(true);
+    setError(undefined);
+    try {
+      await assignEscrowAgent(detail.id, selectedId || null);
+      window.location.reload();
+    } catch (cause) {
+      setError(getErrorMessage(cause, "The escrow agent could not be updated."));
+      setSaving(false);
+    }
+  }
+
+  const assignedLabel = detail.escrowAgent
+    ? detail.escrowAgent.fullName || detail.escrowAgent.email || "Assigned escrow agent"
+    : "No escrow agent assigned";
+
+  return (
+    <motion.article className="rounded-[6px] border border-[#dce5ef] bg-white p-3 xl:col-span-2" variants={fadeUpMotion}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-[12px] font-semibold text-[#303034]">Escrow agent</h2>
+          <p className="mt-1 truncate text-[11px] text-[#777]">
+            {assignedLabel}{detail.escrowAgent?.email && detail.escrowAgent.fullName ? ` · ${detail.escrowAgent.email}` : ""}
+          </p>
+        </div>
+        {canAssign ? (
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[360px] sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1">
+              <SelectField
+                label="Assigned agent"
+                value={selectedId}
+                onChange={setSelectedId}
+                placeholder={loading ? "Loading escrow agents…" : "No agent assigned"}
+                options={agents.map((agent) => ({ value: agent.id, label: agent.fullName || agent.email, description: agent.email }))}
+              />
+            </div>
+            <button
+              className="h-10 shrink-0 rounded-[6px] bg-[#15447c] px-4 text-[11px] font-semibold text-white disabled:opacity-50"
+              disabled={loading || saving || selectedId === (detail.escrowAgent?.id || "")}
+              onClick={() => void save()}
+              type="button"
+            >
+              {saving ? "Saving…" : selectedId ? "Assign agent" : "Unassign"}
+            </button>
+          </div>
+        ) : null}
+      </div>
+      {error ? <p className="mt-2 text-[11px] font-medium text-[#a73640]">{error}</p> : null}
+    </motion.article>
   );
 }
 
@@ -918,6 +992,19 @@ function VesselOperationsPanel({ detail }: { detail: TransactionDetail }) {
               value={vessel.speed !== undefined ? `${vessel.speed} kn` : "—"}
             />
             <SmallMetric label="Status" value={vessel.status || "Tracking"} />
+          </div>
+        ) : null}
+        {vessel && (vessel.latitude === undefined || vessel.longitude === undefined) ? (
+          <div className="mt-3 rounded-[6px] border border-[#ead9ad] bg-[#fffaf0] px-3 py-3">
+            <p className="text-[11px] font-semibold text-[#725219]">Live position not available yet</p>
+            <p className="mt-1 text-[10px] leading-4 text-[#806f50]">Terminal49 has not reported coordinates. This is a normal tracking state and does not prevent the remaining vessel information from being displayed.</p>
+            <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+              <SmallMetric label="Port of call" value={vessel.portOfCall || "Not reported"} />
+              <SmallMetric label="Tracking status" value={formatTrackingStatus(vessel.status)} />
+              <SmallMetric label="Departure" value={vessel.atd ? formatVesselDate(vessel.atd) : "Not reported"} />
+              <SmallMetric label="Arrival" value={vessel.ata ? formatVesselDate(vessel.ata) : "Not reported"} />
+              <SmallMetric label="ETA" value={vessel.eta ? formatVesselDate(vessel.eta) : "Not provided"} />
+            </dl>
           </div>
         ) : null}
         {vessel?.trackingEvents?.length ? (
@@ -1437,17 +1524,24 @@ function MapPreview({ detail }: { detail: TransactionDetail }) {
   }
   if (warehouse?.latitude !== undefined && warehouse.longitude !== undefined) {
     return (
-      <motion.section aria-label="Warehouse location map" className="relative h-[220px] overflow-hidden rounded-[10px] border border-white/70 bg-[#dce8ef] shadow-[0_12px_30px_rgba(0,28,66,.12)]" variants={fadeUpMotion}>
-        <TransactionMap current={{ latitude: warehouse.latitude, longitude: warehouse.longitude, label: warehouse.location || warehouse.name }} vesselName={warehouse.name} />
-        <MapGlassButton href={openStreetMapUrl(warehouse.latitude, warehouse.longitude)} label="Warehouse tracker" />
-        <div className="pointer-events-none absolute bottom-3 left-3 z-[500] rounded-full border border-white/45 bg-[#082b45]/55 px-3 py-1.5 text-[10px] font-semibold text-white shadow-lg backdrop-blur-xl">{warehouse.location || warehouse.name}</div>
-      </motion.section>
+      <div className={`grid gap-3 ${vessel ? "lg:grid-cols-2" : ""}`}>
+        {vessel ? <VesselPositionPending vessel={vessel} /> : null}
+        <motion.section aria-label="Warehouse location map" className="relative h-[220px] overflow-hidden rounded-[10px] border border-white/70 bg-[#dce8ef] shadow-[0_12px_30px_rgba(0,28,66,.12)]" variants={fadeUpMotion}>
+          <TransactionMap current={{ latitude: warehouse.latitude, longitude: warehouse.longitude, label: warehouse.location || warehouse.name }} vesselName={warehouse.name} />
+          <MapGlassButton href={openStreetMapUrl(warehouse.latitude, warehouse.longitude)} label="Warehouse tracker" />
+          <div className="pointer-events-none absolute bottom-3 left-3 z-[500] rounded-full border border-white/45 bg-[#082b45]/55 px-3 py-1.5 text-[10px] font-semibold text-white shadow-lg backdrop-blur-xl">{warehouse.location || warehouse.name}</div>
+        </motion.section>
+      </div>
     );
   }
+  return <VesselPositionPending vessel={vessel} />;
+}
+
+function VesselPositionPending({ vessel }: { vessel?: TransactionDetail["vesselDetails"] }) {
   return (
     <motion.section
       aria-label="Vessel position unavailable"
-      className="flex min-h-[116px] flex-col justify-between gap-4 rounded-[7px] border border-dashed border-[#cfd9e4] bg-[#f7f9fb] px-4 py-4 sm:flex-row sm:items-center"
+      className="flex min-h-[116px] flex-col justify-between gap-4 rounded-[7px] border border-dashed border-[#cfd9e4] bg-[#f7f9fb] px-4 py-4 sm:items-start"
       variants={fadeUpMotion}
     >
       <div className="flex min-w-0 items-start gap-3">
@@ -1466,7 +1560,13 @@ function MapPreview({ detail }: { detail: TransactionDetail }) {
         </div>
       </div>
       {vessel ? (
-        <dl className="grid shrink-0 grid-cols-2 gap-x-6 gap-y-2 text-[10px] sm:text-right">
+        <dl className="grid w-full shrink-0 grid-cols-2 gap-x-6 gap-y-2 text-[10px] sm:grid-cols-3">
+          <div>
+            <dt className="uppercase tracking-wide text-[#9a9aa0]">Current port</dt>
+            <dd className="mt-0.5 font-semibold text-[#45454a]">
+              {vessel.portOfCall || "Not reported"}
+            </dd>
+          </div>
           <div>
             <dt className="uppercase tracking-wide text-[#9a9aa0]">Status</dt>
             <dd className="mt-0.5 font-semibold text-[#45454a]">
@@ -1477,6 +1577,18 @@ function MapPreview({ detail }: { detail: TransactionDetail }) {
             <dt className="uppercase tracking-wide text-[#9a9aa0]">ETA</dt>
             <dd className="mt-0.5 font-semibold text-[#45454a]">
               {vessel.eta ? formatVesselDate(vessel.eta) : "Not provided"}
+            </dd>
+          </div>
+          <div>
+            <dt className="uppercase tracking-wide text-[#9a9aa0]">Departure</dt>
+            <dd className="mt-0.5 font-semibold text-[#45454a]">
+              {vessel.atd ? formatVesselDate(vessel.atd) : "Not reported"}
+            </dd>
+          </div>
+          <div>
+            <dt className="uppercase tracking-wide text-[#9a9aa0]">Arrival</dt>
+            <dd className="mt-0.5 font-semibold text-[#45454a]">
+              {vessel.ata ? formatVesselDate(vessel.ata) : "Not reported"}
             </dd>
           </div>
         </dl>

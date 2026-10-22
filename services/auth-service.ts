@@ -80,9 +80,9 @@ export async function getCurrentUser() {
 
 export function registerUser(payload: RegisterUserPayload) {
   return apiRequest<RegisterUserResponse>("/auth/register", {
+    auth: true,
     body: payload,
     method: "POST",
-    retryOnUnauthorized: false,
   });
 }
 

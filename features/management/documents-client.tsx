@@ -27,6 +27,14 @@ import {
   formatValue,
   managementHeader,
 } from "./management-ui";
+
+const escrowAgentDocumentTypes = new Set([
+  "ESCROW_AGREEMENT",
+  "PAYMENT_CONFIRMATION",
+  "LOAN_CONTRACT",
+  "COMMERCIAL_INVOICE",
+]);
+
 export function DocumentsClient() {
   const role = useAuthenticatedUser()?.role;
   const canUpload = hasCapability(role, "upload:documents");
@@ -65,7 +73,12 @@ export function DocumentsClient() {
     }
     setLoading(true);
     try {
-      setRows(await getOrderDocuments(orderId));
+      const documents = await getOrderDocuments(orderId);
+      setRows(
+        role === "ESCROW_AGENT"
+          ? documents.filter((document) => escrowAgentDocumentTypes.has(document.type))
+          : documents,
+      );
       setError(undefined);
     } catch (e) {
       setError(getErrorMessage(e));
@@ -73,7 +86,7 @@ export function DocumentsClient() {
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, role]);
   useEffect(() => {
     const timer = window.setTimeout(() => void loadDocs(), 0);
     return () => window.clearTimeout(timer);

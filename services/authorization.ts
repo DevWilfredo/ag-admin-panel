@@ -65,6 +65,7 @@ const capabilitiesByRole: Record<UserRole, ReadonlySet<Capability>> = {
     "manage:inventory",
     "upload:documents",
   ]),
+  ESCROW_AGENT: new Set<Capability>(readCapabilities),
 };
 
 export function hasCapability(

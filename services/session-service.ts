@@ -1,4 +1,10 @@
-export type UserRole = "ADMIN" | "PRODUCER" | "BUYER" | "LENDER" | "WAREHOUSE_KEEPER";
+export type UserRole =
+  | "ADMIN"
+  | "PRODUCER"
+  | "BUYER"
+  | "LENDER"
+  | "WAREHOUSE_KEEPER"
+  | "ESCROW_AGENT";
 
 export type CurrentUser = {
   id: string;

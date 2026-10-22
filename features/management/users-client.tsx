@@ -17,7 +17,7 @@ import {
   SecondaryButton, SelectField, formatValue, managementHeader,
 } from "./management-ui";
 
-const roles: UserRole[] = ["ADMIN", "BUYER", "PRODUCER", "LENDER", "WAREHOUSE_KEEPER"];
+const roles: UserRole[] = ["ADMIN", "BUYER", "PRODUCER", "LENDER", "WAREHOUSE_KEEPER", "ESCROW_AGENT"];
 
 export function UsersClient() {
   const currentUser = useAuthenticatedUser();

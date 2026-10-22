@@ -4,8 +4,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, MapPin } from "lucide-react";
-import { listOrders, orderStatuses, type OrderListItemDto } from "@/services/orders-service";
-import { getErrorMessage } from "@/services/api-errors";
+import { getOrder, orderStatuses, type OrderDto } from "@/services/orders-service";
+import { ApiError, getErrorMessage } from "@/services/api-errors";
 import { getVesselByOrder, getVesselLogs, type VesselDetails, type VesselPosition } from "@/services/vessels-service";
 
 const VesselTrackingMap = dynamic(() => import("./vessel-tracking-map").then((module) => module.VesselTrackingMap), { ssr: false, loading: () => <div className="h-full animate-pulse bg-[#193d59]" /> });
@@ -13,7 +13,7 @@ const VesselTrackingMap = dynamic(() => import("./vessel-tracking-map").then((mo
 type TrackingState =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; order: OrderListItemDto; vessel: VesselDetails; events: VesselPosition[] };
+  | { status: "ready"; order: OrderDto; vessel: VesselDetails; events: VesselPosition[] };
 
 export function VesselTrackingDetailClient({ orderId }: { orderId: string }) {
   const [state, setState] = useState<TrackingState>({ status: "loading" });
@@ -46,16 +46,16 @@ function TrackingReady({ order, vessel, events }: Extract<TrackingState, { statu
 
     <div className="grid min-h-[calc(100vh-88px)] lg:grid-cols-[minmax(0,1fr)_360px]">
       <section className="relative min-h-[620px] overflow-hidden bg-[#173f5c] lg:min-h-[calc(100vh-88px)]">
-        {current ? <VesselTrackingMap current={current} events={orderedEvents} vesselName={vesselName} /> : <div className="grid h-full place-items-center text-center text-white/70"><div><MapPin className="mx-auto mb-3" size={34} /><p className="font-semibold">No coordinates available yet</p></div></div>}
+        {current ? <VesselTrackingMap current={current} events={orderedEvents} vesselName={vesselName} /> : <div className="grid h-full place-items-center px-6 text-center text-white/70"><div><MapPin className="mx-auto mb-3" size={34} /><p className="font-semibold">Live position not available yet</p><p className="mt-2 max-w-md text-xs text-white/50">Terminal49 has not reported coordinates for this vessel. Tracking details and milestones remain available.</p></div></div>}
         <div className="pointer-events-none absolute inset-0 z-[400] bg-[#06284b]/20" />
         <section className="absolute bottom-5 left-5 z-[500] w-[320px] max-w-[calc(100%-40px)] rounded-xl border border-white/15 bg-[#04284d]/90 p-4 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center justify-between"><div><p className="text-[9px] font-semibold uppercase tracking-[.18em] text-white/50">Current position</p><p className="mt-1 text-base font-bold">{vessel.currentPortOfCall || current?.portOfCall || "At sea"}</p></div><span className="rounded-full bg-[#13b982]/20 px-3 py-1 text-[10px] font-bold text-[#4df0b4]">● At sea</span></div>
+          <div className="flex items-center justify-between gap-3"><div><p className="text-[9px] font-semibold uppercase tracking-[.18em] text-white/50">Current position</p><p className="mt-1 text-base font-bold">{vessel.currentPortOfCall || current?.portOfCall || "Position not available"}</p></div><span className={`rounded-full px-3 py-1 text-[10px] font-bold ${current ? "bg-[#13b982]/20 text-[#4df0b4]" : "bg-amber-300/15 text-amber-100"}`}>{current ? "● Live position" : "Position pending"}</span></div>
           <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-3"><Metric label="Speed" value={speed(vessel, orderedEvents)} /><Metric label="Voyage" value={vessel.voyageNumber || "—"} /><Metric label="SCAC" value={vessel.scac || "—"} /></dl>
         </section>
       </section>
 
       <aside className="flex min-h-[620px] flex-col border-l border-white/10 bg-gradient-to-b from-[#164d83] to-[#0b3c70]">
-        <div className="grid grid-cols-2 border-b border-white/10"><Info label="Current position" value={vessel.currentPortOfCall || current?.portOfCall || "At sea"} note={vessel.lastUpdated ? `Updated ${formatDate(vessel.lastUpdated, true)}` : "Awaiting update"} /><Info label="Vessel" value={vesselName} note={vessel.voyageNumber || order.orderNumber} /><Info label="ETA" value={vessel.eta ? formatDate(vessel.eta) : "Not provided"} note={dischargePort} /><Info label="Cargo" value={formatQuantity(order.quantity, order.unit)} note={order.commodityType || "Commodity"} /></div>
+        <div className="grid grid-cols-2 border-b border-white/10"><Info label="Current position" value={vessel.currentPortOfCall || current?.portOfCall || "Not available yet"} note={current && vessel.lastUpdated ? `Updated ${formatDate(vessel.lastUpdated, true)}` : formatStatus(status)} /><Info label="Vessel" value={vesselName} note={vessel.voyageNumber || order.orderNumber} /><Info label="Departure" value={vessel.atd ? formatDate(vessel.atd, true) : "Not reported"} note={loadingPort} /><Info label="Arrival" value={vessel.ata ? formatDate(vessel.ata, true) : "Not reported"} note={dischargePort} /><Info label="ETA" value={vessel.eta ? formatDate(vessel.eta) : "Not provided"} note={dischargePort} /><Info label="Cargo" value={formatQuantity(order.quantity, order.unit)} note={order.commodityType || "Commodity"} /></div>
         <section className="min-h-0 flex-1 overflow-y-auto px-5 py-5"><div className="mb-4 flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-white/50">Journey log</p><span className="text-[10px] font-semibold text-white/45">{orderedEvents.length} events</span></div>
           {orderedEvents.length ? <ol>{orderedEvents.map((event, index) => <li className="relative grid grid-cols-[22px_1fr_auto] gap-2 pb-5 last:pb-0" key={event.id || `${event.eventType}-${index}`}><div className="relative flex justify-center"><span className={`relative z-10 mt-1 size-3 rounded-full border-2 ${index === orderedEvents.length - 1 ? "border-[#8ed3ff] bg-[#4ca8ff]" : "border-[#54efb7] bg-[#1dc98d]"}`} />{index < orderedEvents.length - 1 ? <span className="absolute bottom-[-4px] top-3 w-px bg-white/20" /> : null}</div><div><p className="text-xs font-semibold leading-5">{formatEvent(event.eventType)}</p><p className="text-[10px] leading-4 text-white/55">{event.portOfCall || event.description || "Position update"}</p>{hasCoordinates(event) ? <p className="mt-1 font-mono text-[9px] text-[#8dc8ef]">{event.latitude.toFixed(4)}, {event.longitude.toFixed(4)}{event.speed != null ? ` · ${event.speed} kn` : ""}</p> : null}</div><time className="pt-1 text-right text-[9px] text-white/45">{formatDate(timestamp(event), true)}</time></li>)}</ol> : <p className="text-sm text-white/60">No journey events have been received yet.</p>}
         </section>
@@ -67,16 +67,13 @@ function TrackingReady({ order, vessel, events }: Extract<TrackingState, { statu
 
 async function loadTracking(orderId: string): Promise<TrackingState> {
   try {
-    let order: OrderListItemDto | undefined;
-    for (let page = 1; page <= 20 && !order; page += 1) {
-      const response = await listOrders({ page, limit: 100 });
-      order = response.orders.find((item) => item.id === orderId);
-      if (page >= response.pagination.totalPages) break;
-    }
-    if (!order) return { status: "error", message: "This transaction is not available to the current user." };
+    const order = await getOrder(orderId);
     const [vessel, events] = await Promise.all([getVesselByOrder(orderId), getVesselLogs(orderId)]);
     return { status: "ready", order, vessel, events };
   } catch (error) {
+    if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+      return { status: "error", message: "This transaction does not exist or is not available to your account." };
+    }
     return { status: "error", message: getErrorMessage(error, "The vessel tracking details could not be loaded.") };
   }
 }

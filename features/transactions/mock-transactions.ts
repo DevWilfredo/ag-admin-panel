@@ -8,6 +8,7 @@ const previewStates = new Set<PreviewState>([
   "error",
   "unauthorized",
   "forbidden",
+  "not-found",
 ]);
 
 export function getTransactionsMockState(requestedState?: string, requestedTab: TransactionTabKey = "all"): TransactionsDataState {
@@ -48,6 +49,12 @@ function createPreviewState(status: PreviewState): TransactionsDataState {
         status,
         title: "Access restricted",
         message: "Your role is not allowed to view this transaction state.",
+      };
+    case "not-found":
+      return {
+        status,
+        title: "Transaction not available",
+        message: "This transaction does not exist or is not visible to the current account.",
       };
   }
 }

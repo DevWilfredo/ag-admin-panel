@@ -44,6 +44,7 @@ export type OrderDto = {
   buyer?: OrderParticipantDto | null;
   lender?: OrderParticipantDto | null;
   keeper?: OrderParticipantDto | null;
+  escrowAgent?: OrderParticipantDto | null;
   documents?: unknown[];
   payment?: unknown;
   vessel?: VesselDto | string | null;
@@ -101,6 +102,7 @@ export type CreateOrderPayload = {
   buyerId: string;
   lenderId?: string;
   keeperId?: string;
+  escrowAgentId?: string;
 };
 
 export type CreateOrderResponse = {
@@ -155,6 +157,19 @@ export async function listOrders(params: ListOrdersParams = {}) {
   });
 }
 
+type OrderResponse = OrderDto | { order?: OrderDto; data?: OrderDto };
+
+export async function getOrder(orderId: string): Promise<OrderDto> {
+  const response = await apiRequest<OrderResponse>(`/orders/${orderId}`, {
+    auth: true,
+    method: "GET",
+  });
+  if ("order" in response || "data" in response) {
+    return response.order || response.data || ({} as OrderDto);
+  }
+  return response as OrderDto;
+}
+
 export function createOrder(payload: CreateOrderPayload) {
   return apiRequest<CreateOrderResponse>("/orders", {
     auth: true,
@@ -168,6 +183,17 @@ export function deleteOrder(orderId: string) {
     auth: true,
     method: "DELETE",
   });
+}
+
+export function assignEscrowAgent(orderId: string, escrowAgentId: string | null) {
+  return apiRequest<{ message?: string; order?: OrderDto }>(
+    `/orders/${orderId}/escrow-agent`,
+    {
+      auth: true,
+      body: { escrowAgentId },
+      method: "PATCH",
+    },
+  );
 }
 
 export function advanceOrderStage(

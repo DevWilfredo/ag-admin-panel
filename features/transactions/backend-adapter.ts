@@ -12,6 +12,7 @@ import {
 } from "@/services/documents-service";
 import {
   getOrderAudit,
+  getOrder,
   isFinalOrderStatus,
   listOrders,
   type OrderAuditLogDto,
@@ -91,8 +92,11 @@ export async function loadTransactionsBackendState(
       dateTo: options.dateTo,
     });
     const visibleOrders = filterOrdersForTab(listResponse.orders, options.tab);
+    const selectedOrder = options.selectedOrderId
+      ? await getOrder(options.selectedOrderId)
+      : selectOrder(visibleOrders, options);
 
-    if (visibleOrders.length === 0) {
+    if (!selectedOrder) {
       return {
         status: "empty",
         title: "No transactions found",
@@ -100,7 +104,9 @@ export async function loadTransactionsBackendState(
       };
     }
 
-    const selectedOrder = selectOrder(visibleOrders, options);
+    const displayedOrders = visibleOrders.some((order) => order.id === selectedOrder.id)
+      ? visibleOrders
+      : [selectedOrder, ...visibleOrders];
     const [
       auditResult,
       checklistResult,
@@ -134,7 +140,7 @@ export async function loadTransactionsBackendState(
       status: "ready",
       data: {
         header: buildTransactionsHeader(),
-        resultCount: `${listResponse.pagination.total} total / ${visibleOrders.length} shown`,
+        resultCount: `${listResponse.pagination.total} total / ${displayedOrders.length} shown`,
         selectedTransaction: mapOrderToTransactionDetail(selectedOrder, {
           auditResult,
           checklistResult,
@@ -145,7 +151,7 @@ export async function loadTransactionsBackendState(
           warehouseResult,
         }),
         tabs: buildTabs(options.tab),
-        transactions: visibleOrders.map((order) =>
+        transactions: displayedOrders.map((order) =>
           mapOrderToTransactionListItem(order, options.tab),
         ),
       },
@@ -174,6 +180,7 @@ export function mapOrderToTransactionListItem(
     buyer: order.buyer?.fullName || order.buyer?.email || "Not assigned",
     lender: order.lender?.fullName || order.lender?.email || "Not assigned",
     keeper: order.keeper?.fullName || order.keeper?.email || "Not assigned",
+    escrowAgent: order.escrowAgent?.fullName || order.escrowAgent?.email || "Not assigned",
     destination: order.destinationCountry || "Not provided",
   };
 }
@@ -270,7 +277,15 @@ function mapLoadError(error: unknown): TransactionsDataState {
     return {
       status: "forbidden",
       title: "Access restricted",
-      message: "Your role is not allowed to view backend orders.",
+      message: "This transaction is not available to your account. Only assigned transaction parties can view it.",
+    };
+  }
+
+  if (error instanceof ApiError && error.status === 404) {
+    return {
+      status: "not-found",
+      title: "Transaction not available",
+      message: "This transaction does not exist or is not visible to your account.",
     };
   }
 
@@ -336,6 +351,7 @@ function mapOrderToTransactionDetail(
       { label: "BUYER", value: getParticipantName(order.buyer, "Not assigned") },
       { label: "LENDER", value: getParticipantName(order.lender, "Not assigned") },
       { label: "WAREHOUSE KEEPER", value: getParticipantName(order.keeper, "Not assigned") },
+      { label: "ESCROW AGENT", value: getParticipantName(order.escrowAgent, "Not assigned") },
       { label: "WAREHOUSE", value: warehouse?.name || "Not assigned" },
     ],
     number: order.orderNumber || order.id,
@@ -354,6 +370,7 @@ function mapOrderToTransactionDetail(
     volume: formatQuantity(order.quantity, order.unit),
     vesselDetails: vessel,
     warehouseDetails: warehouse,
+    escrowAgent: order.escrowAgent,
   };
 }
 
@@ -423,6 +440,8 @@ function mapVessel(
     billOfLading: data.billOfLading,
     scac: data.scac,
     eta: position?.eta || data.eta,
+    atd: data.atd || undefined,
+    ata: data.ata || undefined,
     latitude,
     longitude,
     speed: position?.speed ?? latestPosition?.speed,
@@ -443,18 +462,41 @@ function mapChecklist(
   result: ResourceResult<DocumentChecklistDto>,
 ): TransactionDocumentChecklist {
   if (result.status === "ready") {
+    const role = getCachedCurrentUser()?.role;
+    const allowedEscrowTypes = new Set([
+      "ESCROW_AGREEMENT",
+      "PAYMENT_CONFIRMATION",
+      "LOAN_CONTRACT",
+      "COMMERCIAL_INVOICE",
+    ]);
+    const checklist = role === "ESCROW_AGENT"
+      ? result.data.checklist.filter((item) => allowedEscrowTypes.has(item.type))
+      : result.data.checklist;
+    const totalRequired = role === "ESCROW_AGENT" ? checklist.length : result.data.totalRequired;
+    const totalUploaded = role === "ESCROW_AGENT"
+      ? checklist.filter((item) => item.uploaded).length
+      : result.data.totalUploaded;
+    const totalPending = role === "ESCROW_AGENT"
+      ? totalRequired - totalUploaded
+      : result.data.totalPending;
+    const completionPercentage = role === "ESCROW_AGENT"
+      ? totalRequired > 0
+        ? Math.round((totalUploaded / totalRequired) * 100)
+        : 0
+      : result.data.completionPercentage;
+
     return {
-      completionPercent: result.data.completionPercentage,
-      items: result.data.checklist.map((item) => ({
+      completionPercent: completionPercentage,
+      items: checklist.map((item) => ({
         href: item.fileUrl || undefined,
         label: formatDocumentType(item.type),
         status: formatOrderStatus(item.status),
         uploaded: item.uploaded,
       })),
-      label: `${result.data.completionPercentage}% complete`,
-      pendingLabel: `${result.data.totalPending} pending`,
+      label: `${completionPercentage}% complete`,
+      pendingLabel: `${totalPending} pending`,
       state: "ready",
-      uploadedLabel: `${result.data.totalUploaded}/${result.data.totalRequired} uploaded`,
+      uploadedLabel: `${totalUploaded}/${totalRequired} uploaded`,
     };
   }
 

@@ -7,6 +7,8 @@ export type VesselPosition = {
   speed?: number;
   portOfCall?: string;
   eta?: string;
+  atd?: string | null;
+  ata?: string | null;
   createdAt?: string;
   timestamp?: string;
   loggedAt?: string;
@@ -23,6 +25,8 @@ export type VesselDetails = {
   billOfLading?: string;
   scac?: string;
   eta?: string;
+  atd?: string | null;
+  ata?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   currentPortOfCall?: string | null;

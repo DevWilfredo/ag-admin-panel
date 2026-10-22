@@ -60,6 +60,7 @@ export function TransactionsClient({
     BUYER: [],
     LENDER: [],
     WAREHOUSE_KEEPER: [],
+    ESCROW_AGENT: [],
   });
   const [warehouses, setWarehouses] = useState<WarehouseDto[]>([]);
   const [formError, setFormError] = useState<string>();
@@ -101,11 +102,12 @@ export function TransactionsClient({
     setFormError(undefined);
     setLoadingUsers(true);
     try {
-      const [producers, buyers, lenders, keepers, warehouseRows] = await Promise.all([
+      const [producers, buyers, lenders, keepers, escrowAgents, warehouseRows] = await Promise.all([
         listUsers({ role: "PRODUCER", limit: 100 }),
         listUsers({ role: "BUYER", limit: 100 }),
         listUsers({ role: "LENDER", limit: 100 }),
         listUsers({ role: "WAREHOUSE_KEEPER", limit: 100 }),
+        listUsers({ role: "ESCROW_AGENT", limit: 100 }),
         listWarehouses(),
       ]);
       setUsers({
@@ -113,6 +115,7 @@ export function TransactionsClient({
         BUYER: buyers,
         LENDER: lenders,
         WAREHOUSE_KEEPER: keepers,
+        ESCROW_AGENT: escrowAgents,
       });
       setWarehouses(warehouseRows);
     } catch (error) {
@@ -148,6 +151,7 @@ export function TransactionsClient({
         buyerId: get("buyerId"),
         lenderId: get("lenderId") || undefined,
         keeperId: get("keeperId") || undefined,
+        escrowAgentId: get("escrowAgentId") || undefined,
       });
       setModal(false);
       router.push(`/transactions?orderId=${response.order.id}`);
@@ -261,6 +265,15 @@ export function TransactionsClient({
                   label="Warehouse keeper (user)"
                   placeholder="Select a keeper account (optional)"
                   options={toKeeperOptions(users.WAREHOUSE_KEEPER, warehouses)}
+                  dropdownPlacement="top"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <SelectField
+                  name="escrowAgentId"
+                  label="Escrow agent"
+                  placeholder="Select an escrow agent (optional)"
+                  options={toOptions(users.ESCROW_AGENT)}
                   dropdownPlacement="top"
                 />
               </div>
